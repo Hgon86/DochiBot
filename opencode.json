@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "*": "allow",
+    "bash": {
+      "*": "allow",
+      "git *": "ask"
+    }
+  },
+  "mcp": {
+    "codanna": {
+      "type": "local",
+      "command": [
+        "codanna",
+        "serve",
+        "--watch",
+        "-c",
+        "c:/Users/A/Desktop/DochiBot/.codanna/settings.toml"
+      ]
+    }
+  }
+}
