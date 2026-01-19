@@ -2,28 +2,23 @@ spring:
   application:
     name: DochiBot
 
-  # PostgreSQL (R2DBC)
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/dochi_bot
     username: ${POSTGRES_USER:dochibot}
     password: ${POSTGRES_PASSWORD:password}
 
-  # Elasticsearch
   elasticsearch:
     uris: http://localhost:9200
 
-  # Security (JWT)
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: ${JWT_ISSUER_URI:}
 
-# Server
 server:
   port: ${SERVER_PORT:8080}
 
-# Spring AI
 spring-ai:
   ollama:
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
@@ -32,7 +27,6 @@ spring-ai:
     embedding:
       model: nomic-embed-text
 
-# S3 / MinIO
 s3:
   endpoint: ${S3_ENDPOINT:http://localhost:9000}
   bucket: ${S3_BUCKET:dochi-bot}
@@ -41,9 +35,8 @@ s3:
   secret-key: ${S3_SECRET_KEY:}
   path-style-access: ${S3_PATH_STYLE_ACCESS:false}
 
-# Logging
 logging:
   level:
     root: INFO
-    com.dochi-bot: DEBUG
+    com.dochibot: DEBUG
     org.springframework.ai: INFO

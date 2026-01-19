@@ -35,7 +35,7 @@
 
 **파일**:
 ```
-src/main/kotlin/com/dochi-bot/DochiBotApplication.kt
+src/main/kotlin/com/dochibot/DochiBotApplication.kt
 src/main/resources/application.yml
 ```
 

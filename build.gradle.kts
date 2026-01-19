@@ -7,7 +7,7 @@ plugins {
     kotlin("plugin.spring") version "2.0.21"
 }
 
-group = "com.dochi-bot"
+group = "com.dochibot"
 version = "1.0-SNAPSHOT"
 
 java {
@@ -44,7 +44,7 @@ dependencies {
 
     // PostgreSQL (R2DBC - Reactive)
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
-    runtimeOnly("io.r2dbc:r2dbc-postgresql")
+    runtimeOnly("org.postgresql:r2dbc-postgresql:1.0.7.RELEASE")
 
     // S3/MinIO (Presigned URL)
     implementation("software.amazon.awssdk:s3")
