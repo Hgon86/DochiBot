@@ -2,41 +2,186 @@ spring:
   application:
     name: DochiBot
 
-  r2dbc:
-    url: r2dbc:postgresql://localhost:5432/dochi_bot
-    username: ${POSTGRES_USER:dochibot}
-    password: ${POSTGRES_PASSWORD:password}
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
 
-  elasticsearch:
-    uris: http://localhost:9200
+  ai:
+    model:
+      chat: ${AI_CHAT_PROVIDER:ollama}
+      embedding: ${AI_EMBEDDING_PROVIDER:ollama}
+      image: none
+      moderation: none
+
+      audio:
+        speech: none
+        transcription: none
+
+
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:llama3.2}
+      embedding:
+        options:
+          model: ${OLLAMA_EMBEDDING_MODEL:mxbai-embed-large}
+
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://openrouter.ai/api/v1}
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${OPENAI_CHAT_MODEL:meta-llama/llama-3.1-8b-instruct:free}
+          http-headers:
+            HTTP-Referer: ${OPENROUTER_HTTP_REFERER:}
+            X-Title: ${OPENROUTER_X_TITLE:DochiBot}
+
+  r2dbc:
+    url: r2dbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:dochi_bot}
+    username: ${POSTGRES_USER:dochibot}
+    password: ${POSTGRES_PASSWORD:}
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:dochi_bot}
+    username: ${POSTGRES_USER:dochibot}
+    password: ${POSTGRES_PASSWORD:}
+
+  flyway:
+    enabled: true
+    # R2DBC(WebFlux) 환경에서는 JDBC DataSource가 자동 생성되지 않을 수 있으므로
+    # Flyway가 사용할 JDBC 접속 정보를 명시한다.
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:dochi_bot}
+    user: ${POSTGRES_USER:dochibot}
+    password: ${POSTGRES_PASSWORD:}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+      repositories:
+        enabled: false
+
 
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: ${JWT_ISSUER_URI:}
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope: email, profile
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: email
+
+dochibot:
+  oauth2:
+    backend-base-url: ${OAUTH2_BACKEND_BASE_URL:http://localhost:8080}
+    frontend-base-url: ${OAUTH2_FRONTEND_BASE_URL:http://localhost:5173}
+
+  jwt:
+    # Phase 1에서는 HS256 대칭키를 사용한다.
+    # 운영에서는 반드시 환경변수로 주입하고(32 bytes 이상), 기본값 사용을 피한다.
+    secret: ${JWT_SECRET:}
+    access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:43200}
+    refresh-token-ttl-seconds: ${JWT_REFRESH_TOKEN_TTL_SECONDS:604800}
+
+  cookie:
+    secure: ${COOKIE_SECURE:false}
+
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+  ai:
+    embedding:
+      model: ${AI_EMBEDDING_MODEL:${OLLAMA_EMBEDDING_MODEL:mxbai-embed-large}}
+      dims: ${AI_EMBEDDING_DIMS:1024}
+    chat:
+      memory:
+        max-messages: ${DOCHIBOT_CHAT_MEMORY_MAX_MESSAGES:10}
+
+  rag:
+    gate:
+      sections-top-m: ${DOCHIBOT_RAG_GATE_SECTIONS_TOP_M:5}
+      dense-top-k: ${DOCHIBOT_RAG_GATE_DENSE_TOP_K:20}
+      sparse-top-k: ${DOCHIBOT_RAG_GATE_SPARSE_TOP_K:20}
+    retrieval:
+      dense-top-k: ${DOCHIBOT_RAG_RETRIEVAL_DENSE_TOP_K:50}
+      sparse-top-k: ${DOCHIBOT_RAG_RETRIEVAL_SPARSE_TOP_K:50}
+    fusion:
+      rrf-k: ${DOCHIBOT_RAG_FUSION_RRF_K:60}
+    context:
+      top-n: ${DOCHIBOT_RAG_CONTEXT_TOP_N:8}
+    rerank:
+      enabled: ${DOCHIBOT_RAG_RERANK_ENABLED:false}
+      candidates-top-k: ${DOCHIBOT_RAG_RERANK_CANDIDATES_TOP_K:100}
+      model: ${DOCHIBOT_RAG_RERANK_MODEL:HEURISTIC}
+      llm-judge:
+        max-candidates: ${DOCHIBOT_RAG_RERANK_LLM_JUDGE_MAX_CANDIDATES:20}
+        timeout-ms: ${DOCHIBOT_RAG_RERANK_LLM_JUDGE_TIMEOUT_MS:3000}
+        snippet-chars: ${DOCHIBOT_RAG_RERANK_LLM_JUDGE_SNIPPET_CHARS:400}
+        max-attempts: ${DOCHIBOT_RAG_RERANK_LLM_JUDGE_MAX_ATTEMPTS:2}
+        fallback-score: ${DOCHIBOT_RAG_RERANK_LLM_JUDGE_FALLBACK_SCORE:0.5}
+        ensemble-calls: ${DOCHIBOT_RAG_RERANK_LLM_JUDGE_ENSEMBLE_CALLS:1}
+      cross-encoder:
+        endpoint: ${DOCHIBOT_RAG_RERANK_CROSS_ENCODER_ENDPOINT:}
+        api-key: ${DOCHIBOT_RAG_RERANK_CROSS_ENCODER_API_KEY:}
+        timeout-ms: ${DOCHIBOT_RAG_RERANK_CROSS_ENCODER_TIMEOUT_MS:2000}
+        max-candidates: ${DOCHIBOT_RAG_RERANK_CROSS_ENCODER_MAX_CANDIDATES:50}
+        snippet-chars: ${DOCHIBOT_RAG_RERANK_CROSS_ENCODER_SNIPPET_CHARS:400}
+    verify:
+      enabled: ${DOCHIBOT_RAG_VERIFY_ENABLED:false}
+      policy: ${DOCHIBOT_RAG_VERIFY_POLICY:NO_EVIDENCE}
+      max-chunks-to-check: ${DOCHIBOT_RAG_VERIFY_MAX_CHUNKS_TO_CHECK:5}
+      min-top1-final-score: ${DOCHIBOT_RAG_VERIFY_MIN_TOP1_FINAL_SCORE:0.0}
+      min-top1-top2-gap: ${DOCHIBOT_RAG_VERIFY_MIN_TOP1_TOP2_GAP:0.0}
+      min-same-doc-support: ${DOCHIBOT_RAG_VERIFY_MIN_SAME_DOC_SUPPORT:1}
+      max-distinct-docs: ${DOCHIBOT_RAG_VERIFY_MAX_DISTINCT_DOCS:0}
+      min-token-coverage: ${DOCHIBOT_RAG_VERIFY_MIN_TOKEN_COVERAGE:0.0}
+      consistency-check-enabled: ${DOCHIBOT_RAG_VERIFY_CONSISTENCY_CHECK_ENABLED:false}
+
+  ingestion:
+    worker:
+      enabled: ${DOCHIBOT_INGESTION_WORKER_ENABLED:true}
+      fixed-delay-ms: ${DOCHIBOT_INGESTION_WORKER_FIXED_DELAY_MS:3000}
+      max-jobs-per-run: ${DOCHIBOT_INGESTION_WORKER_MAX_JOBS_PER_RUN:1}
+    chunking:
+      chunk-size: ${DOCHIBOT_INGESTION_CHUNK_SIZE:1200}
+      chunk-overlap: ${DOCHIBOT_INGESTION_CHUNK_OVERLAP:200}
+    content:
+      max-bytes: ${DOCHIBOT_INGESTION_CONTENT_MAX_BYTES:50000000}
 
 server:
   port: ${SERVER_PORT:8080}
 
-spring-ai:
-  ollama:
-    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-    chat:
-      model: llama3.2
-    embedding:
-      model: nomic-embed-text
-
 s3:
   endpoint: ${S3_ENDPOINT:http://localhost:9000}
+  public-endpoint: ${S3_PUBLIC_ENDPOINT:${S3_ENDPOINT:http://localhost:9000}}
   bucket: ${S3_BUCKET:dochi-bot}
   region: ${S3_REGION:ap-northeast-2}
   access-key: ${S3_ACCESS_KEY:}
   secret-key: ${S3_SECRET_KEY:}
   path-style-access: ${S3_PATH_STYLE_ACCESS:false}
+  presigned-url-expiration-seconds: ${S3_PRESIGNED_URL_EXPIRATION_SECONDS:600}
 
 logging:
   level:
     root: INFO
-    com.dochibot: DEBUG
+    com.dochibot: INFO
     org.springframework.ai: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

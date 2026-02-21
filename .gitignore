@@ -38,12 +38,15 @@ bin/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
-.vscode/
-
 ### Mac OS ###
 .DS_Store
 .idea
-.codannaignore
-.codanna
-.fastembed_cache
+opencode.json
+
+### Env files ###
+.env
+**/.env
+
+### Local Spring config (do not commit) ###
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml

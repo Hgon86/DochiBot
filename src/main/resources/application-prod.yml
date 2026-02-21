@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+logging:
+  level:
+    root: INFO
+    com.dochibot: INFO
+    org.springframework.ai: INFO
+
+dochibot:
+  cookie:
+    secure: ${COOKIE_SECURE:true}
+
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}

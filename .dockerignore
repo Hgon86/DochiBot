@@ -1,0 +1,10 @@
+.git
+.gradle
+.idea
+build
+out
+**/build
+**/out
+.codanna
+.fastembed_cache
+opencode.json
