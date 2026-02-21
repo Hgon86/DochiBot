@@ -1,0 +1,63 @@
+// React 관리자 콘솔(frontend/)용 Biome 설정
+// - ESLint + Prettier 대체
+// - 싱글쿼트 + 세미콜론 최소화(ASNeeded) 스타일
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+
+  "files": {
+    // 빌드 산출물은 강제 제외(성능/인덱싱 이슈 방지)
+    "includes": ["**", "!!**/dist", "!!**/node_modules"]
+  },
+
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf",
+    "bracketSpacing": true
+  },
+
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true
+    }
+  },
+
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "recommended": true,
+        // import 정렬을 액션으로 활성화(VS Code: source.organizeImports.biome)
+        "organizeImports": "on"
+      }
+    }
+  },
+
+  "javascript": {
+    "formatter": {
+      // Prettier와 유사한 포맷 선호도
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "es5",
+      "arrowParentheses": "asNeeded",
+      "bracketSpacing": true,
+      "bracketSameLine": false
+    }
+  },
+
+  "css": {
+    "parser": {
+      // @apply 같은 Tailwind 지시문 파싱 허용
+      "tailwindDirectives": true
+    }
+  }
+}
