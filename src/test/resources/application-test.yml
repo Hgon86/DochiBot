@@ -1,0 +1,26 @@
+spring:
+  ai:
+    model:
+      chat: none
+      embedding: none
+
+dochibot:
+  jwt:
+    secret: 0123456789abcdef0123456789abcdef
+  ingestion:
+    worker:
+      enabled: false
+    chunking:
+      chunk-size: 20
+      chunk-overlap: 0
+  rag:
+    context:
+      top-n: 2
+
+s3:
+  access-key: test
+  secret-key: test
+  endpoint: http://localhost:9000
+  public-endpoint: http://localhost:9000
+  bucket: dochi-bot
+  region: ap-northeast-2

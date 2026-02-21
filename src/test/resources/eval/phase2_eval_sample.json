@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "q1",
+      "query": "(예시) 문서 업로드는 어떻게 하나요?",
+      "queryType": "how",
+      "expected": {
+        "documentTitleContains": "업로드"
+      },
+      "notes": "예시 데이터. 실제 평가셋에서는 기대 근거를 채워 넣는다."
+    },
+    {
+      "id": "q2",
+      "query": "(예시) JWT 토큰 만료 시간은 어디서 설정하나요?",
+      "queryType": "what",
+      "expected": {
+        "documentTitleContains": "JWT"
+      },
+      "notes": "예시 데이터. Phase 2에서는 Hit@1/Hit@5로 회귀를 확인한다."
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "documents": [
+    {
+      "id": "c2dca4d1-1167-45a8-8f36-f57df5ef9aaf",
+      "title": "문서 업로드 가이드",
+      "chunks": [
+        {
+          "id": "f447d5db-535f-4f71-bd8c-b1c8d2ea1c31",
+          "sectionId": "f4fca932-e6c9-4067-ba1d-e4dc6344bc63",
+          "sectionPath": "업로드/기본 흐름",
+          "text": "문서 업로드는 관리자 콘솔에서 시작하며 업로드 URL 발급 후 완료 API를 호출한다."
+        },
+        {
+          "id": "73f7a0ab-4ca1-4db1-b8d0-f8d887178a1d",
+          "sectionId": "1e0c89ea-7f07-4302-a35e-811877a21f2f",
+          "sectionPath": "업로드/검증",
+          "text": "업로드가 끝나면 ingestion job이 생성되고 상태가 COMPLETED가 될 때까지 모니터링한다."
+        }
+      ]
+    },
+    {
+      "id": "b1f01538-0a76-4feb-86b7-3f0ef2f58802",
+      "title": "JWT 인증 정책",
+      "chunks": [
+        {
+          "id": "4d34f35f-b30c-4659-bec3-4b86f4db70d6",
+          "sectionId": "d9b3425f-0be8-4f86-a045-0d441f2e8e25",
+          "sectionPath": "인증/토큰",
+          "text": "JWT 액세스 토큰 만료 시간은 application 설정에서 관리하며 refresh 토큰은 Redis에 저장한다."
+        },
+        {
+          "id": "9b80ea8b-b31f-4ccf-82db-c5caecf4ad5d",
+          "sectionId": "36a19a67-7349-46ec-8622-5e26347f57d0",
+          "sectionPath": "인증/인가",
+          "text": "USER 권한은 chat API에 접근 가능하고 ADMIN은 문서 업로드와 재색인을 수행할 수 있다."
+        }
+      ]
+    }
+  ]
+}
