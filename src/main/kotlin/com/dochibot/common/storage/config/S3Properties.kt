@@ -23,9 +23,9 @@ import org.springframework.validation.annotation.Validated
 @ConfigurationProperties(prefix = "s3")
 data class S3Properties(
     @field:NotBlank
-    val endpoint: String = "http://localhost:9000",
+    val endpoint: String = "http://localhost:8333",
     @field:NotBlank
-    val publicEndpoint: String = "http://localhost:9000",
+    val publicEndpoint: String = "http://localhost:8333",
     @field:NotBlank
     val bucket: String = "dochi-bot",
     @field:NotBlank
@@ -34,7 +34,7 @@ data class S3Properties(
     val accessKey: String = "",
     @field:NotBlank
     val secretKey: String = "",
-    val pathStyleAccess: Boolean = false,
+    val pathStyleAccess: Boolean = true,
     @field:Positive
     val presignedUrlExpirationSeconds: Long = 600,
 )

@@ -57,7 +57,7 @@ interface DocumentIngestionJobRepository : CoroutineCrudRepository<DocumentInges
         where id = :id
           and status = 'QUEUED'
     """)
-    suspend fun claimJob(id: UUID, startedAt: Instant): Int
+    suspend fun claimJob(id: UUID, startedAt: Instant): Int?
 
     /**
      * 인덱싱 작업 처리 결과를 업데이트한다.
@@ -88,7 +88,7 @@ interface DocumentIngestionJobRepository : CoroutineCrudRepository<DocumentInges
         embeddingDims: Int?,
         finishedAt: Instant?,
         errorMessage: String?,
-    ): Int
+    ): Int?
 
     /**
      * 재시도 가능한 실패 시 QUEUED로 되돌리고 backoff를 설정한다.
@@ -120,7 +120,7 @@ interface DocumentIngestionJobRepository : CoroutineCrudRepository<DocumentInges
         attemptCount: Int,
         nextRunAt: Instant,
         errorMessage: String,
-    ): Int
+    ): Int?
 
     /**
      * 인덱싱 작업 목록을 최신순으로 페이지 단위 조회한다.

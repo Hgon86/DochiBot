@@ -39,12 +39,9 @@ services:
       - "9333:9333" # Master UI/API
     volumes:
       - seaweedfs_data:/data
-    command:
-      - /bin/sh
-      - -ec
-      - |
-        printf '%s' '{"identities":[{"name":"admin","credentials":[{"accessKey":"${S3_ACCESS_KEY:-s3admin}","secretKey":"${S3_SECRET_KEY:-s3secret}"}],"actions":["Admin","Read","List","Tagging","Write"]}]}' > /etc/seaweedfs/s3.json
-        exec weed server -dir=/data -s3 -s3.config /etc/seaweedfs/s3.json
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    command: >
+      server -dir=/data -s3 -s3.config /etc/seaweedfs/s3.json
 
   ollama:
     image: ollama/ollama:latest

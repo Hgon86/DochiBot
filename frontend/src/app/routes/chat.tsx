@@ -90,6 +90,13 @@ export const ChatPage = () => {
     }
   }
 
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      event.currentTarget.form?.requestSubmit()
+    }
+  }
+
   return (
     <div className='space-y-5'>
       <section className='rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.10] to-white/[0.03] p-5 shadow-lg shadow-black/10'>
@@ -165,19 +172,22 @@ export const ChatPage = () => {
 
           <form onSubmit={handleSubmit} className='border-t border-white/10 p-4'>
             <div className='flex items-end gap-2'>
-              <Input
+              <textarea
                 value={input}
                 onChange={event => setInput(event.target.value)}
+                onKeyDown={handleComposerKeyDown}
                 name='chatMessage'
                 autoComplete='off'
                 placeholder='질문을 입력하세요… 예: 환불 정책은 어떻게 되나요?'
-                className='border-white/20 bg-white/5 text-foreground placeholder:text-foreground/40'
+                rows={3}
+                className='min-h-[96px] w-full resize-y rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
               />
               <Button type='submit' disabled={!input.trim() || chatMutation.isPending}>
                 <SendHorizontal className='h-4 w-4' />
                 전송
               </Button>
             </div>
+            <p className='mt-2 text-xs text-foreground/60'>Enter 전송, Shift+Enter 줄바꿈</p>
           </form>
         </article>
 

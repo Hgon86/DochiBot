@@ -4,6 +4,7 @@ import com.dochibot.domain.entity.DocumentIngestionJob
 import com.dochibot.domain.enums.IngestionJobStatus
 import com.dochibot.domain.repository.DocumentIngestionJobRepository
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import org.springframework.stereotype.Service
 
@@ -23,10 +24,14 @@ class IngestionJobService(
     suspend fun claimNextQueuedJob(): DocumentIngestionJob? {
         val candidate = documentIngestionJobRepository.findNextQueuedJob()
             ?: return null
-        val startedAt = Instant.now()
-        val updated = documentIngestionJobRepository.claimJob(candidate.id, startedAt)
-        return if (updated == 1) {
-            candidate.copy(status = IngestionJobStatus.RUNNING, startedAt = startedAt)
+        val startedAt = Instant.now().truncatedTo(ChronoUnit.MICROS)
+        documentIngestionJobRepository.claimJob(candidate.id, startedAt)
+
+        val claimed = documentIngestionJobRepository.findById(candidate.id)
+            ?: return null
+
+        return if (claimed.status == IngestionJobStatus.RUNNING && claimed.startedAt == startedAt) {
+            claimed
         } else {
             null
         }

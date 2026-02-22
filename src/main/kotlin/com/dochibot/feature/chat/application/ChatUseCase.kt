@@ -6,7 +6,6 @@ import com.dochibot.common.util.id.Uuid7Generator
 import com.dochibot.domain.entity.ChatMessage
 import com.dochibot.domain.entity.ChatSession
 import com.dochibot.domain.enums.ChatRole
-import com.dochibot.domain.repository.ChatMessageRepository
 import com.dochibot.domain.repository.ChatSessionRepository
 import com.dochibot.feature.chat.dto.ChatRequest
 import com.dochibot.feature.chat.dto.ChatResponse
@@ -18,6 +17,7 @@ import com.dochibot.feature.retrieval.application.verify.EvidenceVerifier
 import com.dochibot.feature.retrieval.application.verify.QueryType
 import com.dochibot.feature.retrieval.application.verify.VerifyPolicy
 import com.dochibot.feature.retrieval.dto.ChunkCandidate
+import com.dochibot.feature.chat.repository.ChatMessageWriter
 import com.dochibot.common.config.DochibotRagProperties
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -55,7 +55,7 @@ class ChatUseCase(
     private val ragProperties: DochibotRagProperties,
     private val evidenceVerifier: EvidenceVerifier,
     private val chatSessionRepository: ChatSessionRepository,
-    private val chatMessageRepository: ChatMessageRepository,
+    private val chatMessageWriter: ChatMessageWriter,
     private val objectMapper: ObjectMapper,
     private val retrievalMetrics: RetrievalMetrics,
 ) {
@@ -100,12 +100,12 @@ class ChatUseCase(
 
         log.info { "Chat requested: userId=$userId, sessionKey=$sessionKey, topK=${request.topK}" }
 
-        chatMessageRepository.save(
+        chatMessageWriter.insert(
             ChatMessage.new(
                 chatSessionId = session.id,
                 role = ChatRole.USER,
                 content = request.message,
-            )
+            ),
         )
 
         val queryEmbedding = withContext(Dispatchers.IO) {
@@ -132,13 +132,13 @@ class ChatUseCase(
         recordVerifyMetric(policyDecision = policyDecision, chunks = chunks)
         if (policyDecision != null) {
             // 근거가 없거나(기존), 근거가 부족하면(verify) 모델을 호출하지 않는다.
-            chatMessageRepository.save(
+            chatMessageWriter.insert(
                 ChatMessage.new(
                     chatSessionId = session.id,
                     role = ChatRole.ASSISTANT,
                     content = policyDecision.answer,
                     citationsJson = "[]",
-                )
+                ),
             )
 
             log.warn {
@@ -220,13 +220,13 @@ class ChatUseCase(
                 .content()
         } ?: throw DochiException(CommonErrorCode.INTERNAL_ERROR, "Empty model response")
 
-        chatMessageRepository.save(
+        chatMessageWriter.insert(
             ChatMessage.new(
                 chatSessionId = session.id,
                 role = ChatRole.ASSISTANT,
                 content = answer,
                 citationsJson = citationsJson,
-            )
+            ),
         )
 
         return ChatResponse(

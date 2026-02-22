@@ -144,7 +144,12 @@ export const listIngestionJobs = (params?: {
 }
 
 export const sendChatMessage = (payload: { message: string; sessionId?: string; topK: number }) => {
-  return api.post('chat', { json: payload }).json<ChatResponse>()
+  return api
+    .post('chat', {
+      json: payload,
+      timeout: 180_000,
+    })
+    .json<ChatResponse>()
 }
 
 export const getHealthStatus = () => {
