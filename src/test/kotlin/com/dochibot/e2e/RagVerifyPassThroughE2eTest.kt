@@ -159,7 +159,7 @@ class RagVerifyPassThroughE2eTest {
             .post()
             .uri("/api/v1/documents/upload-url")
             .header("Authorization", "Bearer $token")
-            .bodyValue(CreateDocumentUploadUrlRequest(originalFilename = "doc.txt", contentType = "text/plain"))
+            .bodyValue(CreateDocumentUploadUrlRequest(originalFilename = "doc.md", contentType = "text/markdown"))
             .exchange()
             .expectStatus().isOk
             .expectBody(CreateDocumentUploadUrlResponse::class.java)
@@ -175,7 +175,7 @@ class RagVerifyPassThroughE2eTest {
                     documentId = upload.documentId,
                     title = "테스트 문서",
                     sourceType = com.dochibot.domain.enums.DocumentSourceType.TEXT,
-                    originalFilename = "doc.txt",
+                    originalFilename = "doc.md",
                     storageUri = upload.storageUri,
                 )
             )

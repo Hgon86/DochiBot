@@ -14,8 +14,43 @@ import type {
   ReindexDocumentResponse,
 } from '@/shared/api/types'
 
+const supportedMarkdownExtensions = ['.md', '.markdown'] as const
+
+const detectExtension = (filename: string) => {
+  const normalized = filename.trim().toLowerCase()
+  if (normalized.endsWith('.pdf')) {
+    return '.pdf'
+  }
+  if (supportedMarkdownExtensions.some(extension => normalized.endsWith(extension))) {
+    return '.md'
+  }
+  return null
+}
+
 const detectSourceType = (filename: string): 'PDF' | 'TEXT' => {
-  return filename.toLowerCase().endsWith('.pdf') ? 'PDF' : 'TEXT'
+  const extension = detectExtension(filename)
+  if (extension === '.pdf') {
+    return 'PDF'
+  }
+  if (extension === '.md') {
+    return 'TEXT'
+  }
+  throw new Error('PDF(.pdf) 또는 Markdown(.md, .markdown) 파일만 업로드할 수 있습니다.')
+}
+
+const detectContentType = (file: File): string => {
+  const extension = detectExtension(file.name)
+  if (extension === '.pdf') {
+    return 'application/pdf'
+  }
+  if (extension === '.md') {
+    return 'text/markdown'
+  }
+  throw new Error('PDF(.pdf) 또는 Markdown(.md, .markdown) 파일만 업로드할 수 있습니다.')
+}
+
+export const isSupportedUploadFilename = (filename: string) => {
+  return detectExtension(filename) !== null
 }
 
 export const getCurrentUser = () => {
@@ -46,7 +81,9 @@ export const getDocument = (documentId: string) => {
 }
 
 export const uploadDocument = async (input: { file: File; title?: string }) => {
-  const contentType = input.file.type || 'application/octet-stream'
+  const contentType = detectContentType(input.file)
+  const sourceType = detectSourceType(input.file.name)
+
   const upload = await api
     .post('documents/upload-url', {
       json: {
@@ -75,7 +112,7 @@ export const uploadDocument = async (input: { file: File; title?: string }) => {
       json: {
         documentId: upload.documentId,
         title: input.title?.trim() || input.file.name,
-        sourceType: detectSourceType(input.file.name),
+        sourceType,
         originalFilename: input.file.name,
         storageUri: upload.storageUri,
       },

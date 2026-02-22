@@ -1,5 +1,7 @@
 package com.dochibot.feature.document.application
 
+import com.dochibot.common.exception.CommonErrorCode
+import com.dochibot.common.exception.DochiException
 import com.dochibot.common.storage.config.S3Properties
 import com.dochibot.common.storage.service.S3Service
 import com.dochibot.common.util.id.Uuid7Generator
@@ -21,6 +23,8 @@ class CreateDocumentUploadUrlUseCase(
      * @return presigned URL 및 저장 위치 정보
      */
     fun execute(request: CreateDocumentUploadUrlRequest): CreateDocumentUploadUrlResponse {
+        validateSupportedFormat(request.originalFilename, request.contentType)
+
         val documentId: UUID = Uuid7Generator.create()
         val bucket = s3Properties.bucket
         val key = s3Service.buildDocumentObjectKey(documentId, request.originalFilename)
@@ -44,5 +48,14 @@ class CreateDocumentUploadUrlUseCase(
             expiresInSeconds = s3Properties.presignedUrlExpirationSeconds,
             requiredHeaders = requiredHeaders,
         )
+    }
+
+    private fun validateSupportedFormat(originalFilename: String, contentType: String) {
+        if (!DocumentUploadPolicy.isSupportedUpload(originalFilename, contentType)) {
+            throw DochiException(
+                CommonErrorCode.BAD_REQUEST,
+                DocumentUploadPolicy.UNSUPPORTED_FORMAT_MESSAGE
+            )
+        }
     }
 }

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   formatDateTime,
+  isSupportedUploadFilename,
   listDocuments,
   reindexDocument,
   statusLabel,
@@ -119,12 +120,31 @@ export const DocumentsPage = () => {
             <Input
               name='uploadFile'
               type='file'
+              accept='.pdf,.md,.markdown'
               onChange={event => {
-                setSelectedFile(event.target.files?.[0] ?? null)
+                const nextFile = event.target.files?.[0] ?? null
+                if (!nextFile) {
+                  setSelectedFile(null)
+                  setFeedback(null)
+                  return
+                }
+
+                if (!isSupportedUploadFilename(nextFile.name)) {
+                  setSelectedFile(null)
+                  setFeedback(
+                    'PDF(.pdf) 또는 Markdown(.md, .markdown) 파일만 업로드할 수 있습니다.'
+                  )
+                  return
+                }
+
+                setSelectedFile(nextFile)
                 setFeedback(null)
               }}
               className='border-white/20 bg-white/5 text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-white/15 file:px-3 file:py-1 file:text-xs file:text-white'
             />
+            <p className='text-xs text-foreground/60'>
+              지원 형식: PDF(.pdf), Markdown(.md, .markdown)
+            </p>
             <Input
               name='uploadTitle'
               autoComplete='off'

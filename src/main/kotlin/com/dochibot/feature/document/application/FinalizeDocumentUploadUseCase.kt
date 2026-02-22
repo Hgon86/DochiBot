@@ -45,6 +45,7 @@ class FinalizeDocumentUploadUseCase(
             }
 
             validateObjectKeyRule(documentId = documentId, key = parsed.key)
+            validateSourceType(request = request, objectKey = parsed.key)
 
             val createdByUserId = runCatching { UUID.fromString(jwt.subject) }
                 .getOrElse {
@@ -94,5 +95,38 @@ class FinalizeDocumentUploadUseCase(
         if (!ok) {
             throw DochiException(CommonErrorCode.BAD_REQUEST, "Invalid object key rule")
         }
+    }
+
+    private fun validateSourceType(request: FinalizeDocumentUploadRequest, objectKey: String) {
+        val filename = resolveOriginalFilename(request.originalFilename, objectKey)
+            ?: throw DochiException(CommonErrorCode.BAD_REQUEST, "Missing original filename")
+
+        val expected = DocumentUploadPolicy.detectSourceType(filename)
+            ?: throw DochiException(
+                CommonErrorCode.BAD_REQUEST,
+                DocumentUploadPolicy.UNSUPPORTED_FORMAT_MESSAGE
+            )
+
+        if (request.sourceType != expected) {
+            throw DochiException(
+                CommonErrorCode.BAD_REQUEST,
+                "sourceType does not match the file format."
+            )
+        }
+    }
+
+    private fun resolveOriginalFilename(originalFilename: String?, objectKey: String): String? {
+        return originalFilename?.takeIf { it.isNotBlank() }
+            ?: extractOriginalFilenameFromObjectKey(objectKey)
+    }
+
+    private fun extractOriginalFilenameFromObjectKey(objectKey: String): String? {
+        val keyFilename = objectKey.trimStart('/').substringAfterLast('/', "")
+        val separator = keyFilename.indexOf('_')
+
+        return keyFilename
+            .takeIf { separator > 0 && separator < it.lastIndex }
+            ?.substring(separator + 1)
+            ?.takeIf { it.isNotBlank() }
     }
 }

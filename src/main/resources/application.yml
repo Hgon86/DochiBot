@@ -27,14 +27,12 @@ spring:
           model: ${OLLAMA_EMBEDDING_MODEL:mxbai-embed-large}
 
     openai:
-      base-url: ${OPENAI_BASE_URL:https://openrouter.ai/api/v1}
+      base-url: ${OPENAI_BASE_URL:https://opencode.ai/zen/v1}
       api-key: ${OPENAI_API_KEY:}
       chat:
+        completions-path: ${OPENAI_CHAT_COMPLETIONS_PATH:/chat/completions}
         options:
-          model: ${OPENAI_CHAT_MODEL:meta-llama/llama-3.1-8b-instruct:free}
-          http-headers:
-            HTTP-Referer: ${OPENROUTER_HTTP_REFERER:}
-            X-Title: ${OPENROUTER_X_TITLE:DochiBot}
+          model: ${OPENAI_CHAT_MODEL:glm-5-free}
 
   r2dbc:
     url: r2dbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:dochi_bot}
