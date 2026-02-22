@@ -54,7 +54,7 @@ export const OauthCallbackPage = () => {
       <div className='w-full max-w-md space-y-4 text-center'>
         <div className='flex items-center justify-center gap-2 text-foreground/80'>
           <Spinner className='h-5 w-5' />
-          <span>로그인 처리 중...</span>
+          <span>로그인 처리 중…</span>
         </div>
         {error && (
           <Alert variant='destructive' className='border-destructive/50 bg-destructive/10'>

@@ -151,3 +151,12 @@ body,
 body {
   margin: 0;
 }
+
+a,
+button,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}

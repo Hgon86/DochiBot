@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,17 +8,29 @@ import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { useAuth } from '@/shared/auth/use-auth'
 
+type LoginLocationState = {
+  from?: {
+    pathname?: string
+    search?: string
+    hash?: string
+  }
+}
+
 export const LoginPage = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const { login, loginWithGoogle, isLoading, error } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
+
+  const from = (location.state as LoginLocationState | null)?.from
+  const redirectTo = from?.pathname ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}` : '/'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       await login(email, password)
-      navigate('/')
+      navigate(redirectTo, { replace: true })
     } catch (_err) {
       // Error is handled by auth context
     }
@@ -30,8 +42,8 @@ export const LoginPage = () => {
       <div className='absolute inset-0 bg-linear-to-br from-[oklch(0.15_0.04_264)] via-[oklch(0.12_0.03_280)] to-[oklch(0.10_0.02_300)]' />
 
       {/* Floating gradient orbs for depth */}
-      <div className='absolute left-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-[oklch(0.65_0.24_264)] opacity-20 blur-3xl' />
-      <div className='absolute bottom-1/4 right-1/4 h-80 w-80 animate-pulse rounded-full bg-[oklch(0.55_0.18_300)] opacity-20 blur-3xl animation-delay-2000' />
+      <div className='absolute left-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-[oklch(0.65_0.24_264)] opacity-20 blur-3xl motion-reduce:animate-none' />
+      <div className='absolute bottom-1/4 right-1/4 h-80 w-80 animate-pulse rounded-full bg-[oklch(0.55_0.18_300)] opacity-20 blur-3xl animation-delay-2000 motion-reduce:animate-none' />
 
       {/* Login container */}
       <div className='relative z-10 w-full max-w-md space-y-8'>
@@ -60,7 +72,7 @@ export const LoginPage = () => {
         </div>
 
         {/* Login Form with glassmorphism */}
-        <div className='group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:border-white/20 hover:bg-white/[0.07]'>
+        <div className='group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl transition-colors duration-300 hover:border-white/20 hover:bg-white/[0.07]'>
           {/* Subtle gradient overlay */}
           <div className='absolute inset-0 bg-linear-to-br from-white/[0.07] to-transparent opacity-50' />
 
@@ -78,8 +90,11 @@ export const LoginPage = () => {
               </Label>
               <Input
                 id='email'
+                name='email'
                 type='email'
-                placeholder='admin@dochibot.com'
+                autoComplete='email'
+                spellCheck={false}
+                placeholder='admin@dochibot.com…'
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
@@ -94,7 +109,9 @@ export const LoginPage = () => {
               </Label>
               <Input
                 id='password'
+                name='password'
                 type='password'
+                autoComplete='current-password'
                 placeholder='••••••••'
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -106,13 +123,13 @@ export const LoginPage = () => {
 
             <Button
               type='submit'
-              className='w-full bg-linear-to-r from-[oklch(0.65_0.24_264)] to-[oklch(0.55_0.18_300)] text-lg font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/40'
+              className='w-full bg-linear-to-r from-[oklch(0.65_0.24_264)] to-[oklch(0.55_0.18_300)] text-lg font-semibold text-white shadow-lg shadow-primary/25 transition-shadow hover:shadow-xl hover:shadow-primary/40'
               disabled={isLoading}
             >
               {isLoading ? (
                 <>
                   <Spinner className='mr-2 h-5 w-5' />
-                  Signing in...
+                  Signing in…
                 </>
               ) : (
                 'Sign in'
@@ -131,7 +148,7 @@ export const LoginPage = () => {
             <Button
               type='button'
               variant='outline'
-              className='w-full border-white/20 bg-white/5 text-foreground backdrop-blur-sm transition-all hover:border-white/30 hover:bg-white/10'
+              className='w-full border-white/20 bg-white/5 text-foreground backdrop-blur-sm transition-colors hover:border-white/30 hover:bg-white/10'
               onClick={loginWithGoogle}
               disabled={isLoading}
             >
