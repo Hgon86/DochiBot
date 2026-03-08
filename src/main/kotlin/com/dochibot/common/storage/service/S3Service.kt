@@ -10,6 +10,9 @@ import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import org.springframework.stereotype.Service
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException
+import software.amazon.awssdk.services.s3.model.S3Exception
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest
@@ -19,6 +22,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
  */
 @Service
 class S3Service(
+    private val s3Client: S3Client,
     private val s3Presigner: S3Presigner,
     private val props: S3Properties,
 ) {
@@ -82,6 +86,31 @@ class S3Service(
                         it.responseContentDisposition(contentDisposition)
                     }
                 }
+        }
+    }
+
+    /**
+     * 오브젝트를 삭제한다.
+     *
+     * @param bucket 버킷
+     * @param key 오브젝트 key
+     */
+    fun deleteObject(bucket: String, key: String) {
+        log.info { "Delete object: bucket=$bucket, key=$key" }
+
+        try {
+            s3Client.deleteObject { request ->
+                request.bucket(bucket)
+                    .key(key)
+            }
+        } catch (_: NoSuchKeyException) {
+            log.info { "Skip deleting missing object: bucket=$bucket, key=$key" }
+        } catch (e: S3Exception) {
+            if (e.statusCode() == 404) {
+                log.info { "Skip deleting missing object via S3Exception: bucket=$bucket, key=$key" }
+                return
+            }
+            throw e
         }
     }
 

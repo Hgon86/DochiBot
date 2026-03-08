@@ -38,12 +38,15 @@ data class DochibotIngestionProperties(
      *
      * @property chunkSize 청크 최대 길이(문자)
      * @property chunkOverlap 오버랩 길이(문자)
+     * @property maxEmbeddingInputChars 임베딩 모델 입력 상한을 고려한 청크 최대 길이(문자)
      */
     data class Chunking(
         @field:Min(200)
         val chunkSize: Int = 1200,
         @field:Min(0)
         val chunkOverlap: Int = 200,
+        @field:Min(100)
+        val maxEmbeddingInputChars: Int = 400,
     )
 
     /**

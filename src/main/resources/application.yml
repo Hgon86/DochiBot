@@ -32,12 +32,12 @@ spring:
           model: ${OLLAMA_EMBEDDING_MODEL:mxbai-embed-large}
 
     openai:
-      base-url: ${OPENAI_BASE_URL:https://opencode.ai/zen/v1}
-      api-key: ${OPENAI_API_KEY:}
+      base-url: ${NVIDIA_BASE_URL:https://integrate.api.nvidia.com}
+      api-key: ${NVIDIA_API_KEY:}
       chat:
-        completions-path: ${OPENAI_CHAT_COMPLETIONS_PATH:/chat/completions}
+        completions-path: ${NVIDIA_CHAT_COMPLETIONS_PATH:/v1/chat/completions}
         options:
-          model: ${OPENAI_CHAT_MODEL:gpt-5-nano}
+          model: ${NVIDIA_CHAT_MODEL:meta/llama-3.1-70b-instruct}
 
   r2dbc:
     url: r2dbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:dochi_bot}
@@ -126,7 +126,7 @@ dochibot:
     context:
       top-n: ${DOCHIBOT_RAG_CONTEXT_TOP_N:8}
     rerank:
-      enabled: ${DOCHIBOT_RAG_RERANK_ENABLED:false}
+      enabled: ${DOCHIBOT_RAG_RERANK_ENABLED:true}
       candidates-top-k: ${DOCHIBOT_RAG_RERANK_CANDIDATES_TOP_K:100}
       model: ${DOCHIBOT_RAG_RERANK_MODEL:HEURISTIC}
       llm-judge:
@@ -161,6 +161,7 @@ dochibot:
     chunking:
       chunk-size: ${DOCHIBOT_INGESTION_CHUNK_SIZE:1200}
       chunk-overlap: ${DOCHIBOT_INGESTION_CHUNK_OVERLAP:200}
+      max-embedding-input-chars: ${DOCHIBOT_INGESTION_MAX_EMBEDDING_INPUT_CHARS:400}
     content:
       max-bytes: ${DOCHIBOT_INGESTION_CONTENT_MAX_BYTES:50000000}
 

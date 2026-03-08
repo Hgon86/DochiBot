@@ -11,7 +11,9 @@ import java.io.ByteArrayInputStream
  * 문서 소스 타입별 텍스트 추출을 담당한다.
  */
 @Service
-class DocumentTextExtractor {
+class DocumentTextExtractor(
+    private val markdownSectionParser: MarkdownSectionParser,
+) {
     /**
      * 문서 타입에 맞게 텍스트를 추출한다.
      *
@@ -19,20 +21,21 @@ class DocumentTextExtractor {
      * @param content 원본 바이트
      * @return 페이지 단위 텍스트 목록
      */
-    fun extract(document: Document, content: ByteArray): List<ExtractedPage> {
+    fun extract(document: Document, content: ByteArray): List<ExtractedSection> {
         return when (document.sourceType) {
-            DocumentSourceType.TEXT -> extractText(content)
-            DocumentSourceType.PDF -> extractPdf(content)
+            DocumentSourceType.TEXT -> extractText(document, content)
+            DocumentSourceType.PDF -> extractPdf(document, content)
         }
     }
 
-    private fun extractText(content: ByteArray): List<ExtractedPage> {
+    private fun extractText(document: Document, content: ByteArray): List<ExtractedSection> {
         val text = String(content, Charsets.UTF_8)
-        return listOf(ExtractedPage(page = null, text = text))
+        return markdownSectionParser.parse(documentTitle = document.title, markdown = text)
     }
 
-    private fun extractPdf(content: ByteArray): List<ExtractedPage> {
-        val pages = mutableListOf<ExtractedPage>()
+    private fun extractPdf(document: Document, content: ByteArray): List<ExtractedSection> {
+        val pages = mutableListOf<ExtractedSection>()
+        var index = 0
         PDDocument.load(ByteArrayInputStream(content)).use { pdf ->
             val permission = pdf.currentAccessPermission
             if (!permission.canExtractContent()) {
@@ -46,7 +49,17 @@ class DocumentTextExtractor {
                 stripper.endPage = pageIndex
                 val text = stripper.getText(pdf).trim()
                 if (text.isNotBlank()) {
-                    pages.add(ExtractedPage(page = pageIndex, text = text))
+                    pages.add(
+                        ExtractedSection(
+                            index = index++,
+                            parentIndex = null,
+                            level = 1,
+                            heading = "Page $pageIndex",
+                            sectionPath = "${document.title} > Page $pageIndex",
+                            page = pageIndex,
+                            text = text,
+                        )
+                    )
                 }
             }
         }
@@ -55,12 +68,22 @@ class DocumentTextExtractor {
 }
 
 /**
- * 추출된 페이지 단위 텍스트.
+ * 추출된 섹션 단위 텍스트.
  *
- * @property page 페이지 번호(PDF만 사용, 1부터 시작)
- * @property text 페이지 텍스트
+ * @property index 문서 내 섹션 순번
+ * @property parentIndex 부모 섹션 순번
+ * @property level heading 레벨
+ * @property heading 섹션 제목
+ * @property sectionPath 문서 제목을 포함한 섹션 경로
+ * @property page PDF 페이지 번호(PDF만 사용)
+ * @property text 섹션 본문
  */
-data class ExtractedPage(
+data class ExtractedSection(
+    val index: Int,
+    val parentIndex: Int?,
+    val level: Int,
+    val heading: String,
+    val sectionPath: String,
     val page: Int?,
     val text: String,
 )

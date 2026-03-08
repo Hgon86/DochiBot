@@ -143,7 +143,8 @@ docker compose -f docker-dev/compose.yaml --env-file docker-dev/.env --profile a
 ---
 
 ## 💡 설정 메모
-- LLM은 기본값이 로컬 Ollama이며, `AI_CHAT_PROVIDER=openai`로 OpenAI 호환 제공자(기본: OpenCode Zen)로 전환할 수 있습니다.
+- 로컬 프로필의 채팅 LLM은 기본적으로 OpenAI 호환 제공자를 사용하며, 기본 엔드포인트는 NVIDIA NIM입니다. `NVIDIA_API_KEY`만 채우면 바로 사용할 수 있습니다.
+- 필요하면 `AI_CHAT_PROVIDER=ollama`로 로컬 Ollama 채팅 모델로 되돌릴 수 있습니다.
 - 문서 업로드는 현재 `PDF(.pdf)`와 `Markdown(.md, .markdown)`만 지원합니다.
 - 임베딩 모델은 `OLLAMA_EMBEDDING_MODEL`로 바꿀 수 있습니다(기본: `mxbai-embed-large`). 필요하면 `nomic-embed-text`로 더 가볍게 시작할 수 있습니다.
 

@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LoaderCircle, RefreshCw, Search, UploadCloud } from 'lucide-react'
+import { LoaderCircle, RefreshCw, Search, Trash2, UploadCloud } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  deleteDocument,
   formatDateTime,
   isSupportedUploadFilename,
   listDocuments,
@@ -31,6 +32,7 @@ export const DocumentsPage = () => {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadTitle, setUploadTitle] = useState('')
+  const [pendingDeleteDocumentId, setPendingDeleteDocumentId] = useState<string | null>(null)
   const [pendingReindexDocumentId, setPendingReindexDocumentId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
 
@@ -82,6 +84,25 @@ export const DocumentsPage = () => {
     },
     onSettled: () => {
       setPendingReindexDocumentId(null)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (documentId: string) => deleteDocument(documentId),
+    onMutate: documentId => {
+      setPendingDeleteDocumentId(documentId)
+    },
+    onSuccess: async (_, documentId) => {
+      setFeedback(`문서를 삭제했습니다. (${toShortId(documentId)})`)
+      await queryClient.invalidateQueries({ queryKey: ['documents'] })
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] })
+      await queryClient.invalidateQueries({ queryKey: ['ingestion-jobs'] })
+    },
+    onError: error => {
+      setFeedback(error instanceof Error ? error.message : '문서 삭제에 실패했습니다.')
+    },
+    onSettled: () => {
+      setPendingDeleteDocumentId(null)
     },
   })
 
@@ -284,6 +305,33 @@ export const DocumentsPage = () => {
                               disabled={pendingReindexDocumentId === document.id}
                             >
                               {pendingReindexDocumentId === document.id ? '처리중…' : '재인덱싱'}
+                            </Button>
+                            <Button
+                              type='button'
+                              variant='destructive'
+                              size='sm'
+                              onClick={() => {
+                                const confirmed = window.confirm(
+                                  `문서 "${document.title}"을(를) 삭제할까요? 이 작업은 되돌릴 수 없습니다.`
+                                )
+                                if (!confirmed) {
+                                  return
+                                }
+                                deleteMutation.mutate(document.id)
+                              }}
+                              disabled={
+                                pendingDeleteDocumentId === document.id ||
+                                document.status === 'PROCESSING'
+                              }
+                            >
+                              {pendingDeleteDocumentId === document.id ? (
+                                '삭제중…'
+                              ) : (
+                                <>
+                                  <Trash2 className='h-4 w-4' />
+                                  삭제
+                                </>
+                              )}
                             </Button>
                           </div>
                         </td>

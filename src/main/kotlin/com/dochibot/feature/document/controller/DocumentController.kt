@@ -3,6 +3,7 @@ package com.dochibot.feature.document.controller
 import com.dochibot.domain.enums.DocumentStatus
 import com.dochibot.feature.document.application.CreateDocumentDownloadUrlUseCase
 import com.dochibot.feature.document.application.CreateDocumentUploadUrlUseCase
+import com.dochibot.feature.document.application.DeleteDocumentUseCase
 import com.dochibot.feature.document.application.FinalizeDocumentUploadUseCase
 import com.dochibot.feature.document.application.GetDocumentUseCase
 import com.dochibot.feature.document.application.ListDocumentsUseCase
@@ -19,6 +20,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.validation.Valid
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
+import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.ResponseStatus
 import java.util.UUID
 
 @RestController
@@ -37,6 +41,7 @@ class DocumentController(
     private val getDocumentUseCase: GetDocumentUseCase,
     private val createDocumentDownloadUrlUseCase: CreateDocumentDownloadUrlUseCase,
     private val reindexDocumentUseCase: ReindexDocumentUseCase,
+    private val deleteDocumentUseCase: DeleteDocumentUseCase,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -129,5 +134,21 @@ class DocumentController(
         @PathVariable documentId: UUID,
     ): ReindexDocumentResponse {
         return reindexDocumentUseCase.execute(documentId)
+    }
+
+    /**
+     * 문서를 삭제한다.
+     *
+     * @param jwt 인증 주체(JWT)
+     * @param documentId 문서 ID
+     */
+    @DeleteMapping("/{documentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    suspend fun deleteDocument(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable documentId: UUID,
+    ) {
+        log.info { "Delete document requested: userId=${jwt.subject}, documentId=$documentId" }
+        deleteDocumentUseCase.execute(documentId)
     }
 }

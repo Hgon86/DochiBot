@@ -15,7 +15,7 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector
 import reactor.netty.http.client.HttpClient
 
 /**
- * OpenAI 호환(zen) 호출용 HTTP 클라이언트 타임아웃을 명시적으로 설정한다.
+ * OpenAI 호환 provider 호출용 HTTP 클라이언트 타임아웃을 명시적으로 설정한다.
  */
 @Configuration
 @ConditionalOnProperty(prefix = "spring.ai.model", name = ["chat"], havingValue = "openai")

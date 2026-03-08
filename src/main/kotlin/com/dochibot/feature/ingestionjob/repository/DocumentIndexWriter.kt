@@ -1,7 +1,6 @@
 package com.dochibot.feature.ingestionjob.repository
 
 import com.dochibot.common.util.id.Uuid7Generator
-import com.dochibot.domain.entity.Document
 import com.dochibot.feature.ingestionjob.application.TextChunk
 import kotlinx.coroutines.reactor.awaitSingle
 import org.springframework.r2dbc.core.DatabaseClient
@@ -35,31 +34,42 @@ class DocumentIndexWriter(
             .awaitSingle()
     }
 
-    /**
-     * 최소 구현을 위한 루트 섹션 1개를 생성한다.
-     *
-     * @param document 문서 메타데이터
-     * @return 생성된 section ID
-     */
-    suspend fun insertRootSection(document: Document): UUID {
-        val sectionId = Uuid7Generator.create()
-
-        databaseClient.sql(
-            """
+    suspend fun insertSections(documentId: UUID, sections: List<IndexedSectionInput>): Map<Int, UUID> {
+        val sql = """
             insert into sections (id, document_id, parent_id, level, heading, section_path, summary, section_text)
-            values (:id, :documentId, null, :level, :heading, :sectionPath, null, null)
-            """.trimIndent()
-        )
-            .bind("id", sectionId)
-            .bind("documentId", document.id)
-            .bind("level", 1)
-            .bind("heading", document.title)
-            .bind("sectionPath", document.title)
-            .fetch()
-            .rowsUpdated()
-            .awaitSingle()
+            values (:id, :documentId, :parentId, :level, :heading, :sectionPath, null, :sectionText)
+        """.trimIndent()
 
-        return sectionId
+        val idsByIndex = linkedMapOf<Int, UUID>()
+        for (section in sections) {
+            val sectionId = Uuid7Generator.create()
+            var spec = databaseClient.sql(sql)
+                .bind("id", sectionId)
+                .bind("documentId", documentId)
+                .bind("level", section.level)
+                .bind("heading", section.heading)
+                .bind("sectionPath", section.sectionPath)
+
+            spec = if (section.parentIndex != null) {
+                spec.bind("parentId", idsByIndex[section.parentIndex] ?: error("parent section not found: ${section.parentIndex}"))
+            } else {
+                spec.bindNull("parentId", UUID::class.java)
+            }
+
+            spec = if (section.sectionText.isBlank()) {
+                spec.bindNull("sectionText", String::class.java)
+            } else {
+                spec.bind("sectionText", section.sectionText)
+            }
+
+            spec.fetch()
+                .rowsUpdated()
+                .awaitSingle()
+
+            idsByIndex[section.index] = sectionId
+        }
+
+        return idsByIndex
     }
 
     /**
@@ -93,7 +103,7 @@ class DocumentIndexWriter(
      */
     suspend fun insertChunks(
         documentId: UUID,
-        sectionId: UUID,
+        sectionIdsByIndex: Map<Int, UUID>,
         chunks: List<TextChunk>,
         embeddings: List<FloatArray>,
     ) {
@@ -118,7 +128,7 @@ class DocumentIndexWriter(
             var spec = databaseClient.sql(sql)
                 .bind("id", chunkId)
                 .bind("documentId", documentId)
-                .bind("sectionId", sectionId)
+                .bind("sectionId", sectionIdsByIndex[chunk.sectionIndex] ?: error("sectionId not found: ${chunk.sectionIndex}"))
                 .bind("chunkIndex", chunk.index)
                 .bind("text", chunk.text)
 
@@ -147,3 +157,12 @@ class DocumentIndexWriter(
         }
     }
 }
+
+data class IndexedSectionInput(
+    val index: Int,
+    val parentIndex: Int?,
+    val level: Int,
+    val heading: String,
+    val sectionPath: String,
+    val sectionText: String,
+)

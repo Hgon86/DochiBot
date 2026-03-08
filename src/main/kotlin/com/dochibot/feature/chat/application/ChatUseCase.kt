@@ -171,7 +171,10 @@ class ChatUseCase(
             )
         }
 
-        val chunksForAnswer = chunks.take(responseTopK)
+        val chunksForAnswer = ChatAnswerFormatter.selectEvidenceChunks(
+            chunks = chunks.take(responseTopK),
+            requestedCount = responseTopK,
+        )
 
         log.info {
             StructuredLogSupport.toJsonLog(
@@ -209,7 +212,7 @@ class ChatUseCase(
                 }
         }
 
-        val answer: String = withContext(Dispatchers.IO) {
+        val rawAnswer: String = withContext(Dispatchers.IO) {
             chatClient.prompt()
                 .system(contextMessage)
                 .user(request.message)
@@ -219,6 +222,10 @@ class ChatUseCase(
                 .call()
                 .content()
         } ?: throw DochiException(CommonErrorCode.INTERNAL_ERROR, "Empty model response")
+
+        val answer = ChatAnswerFormatter.sanitizeAnswer(rawAnswer)
+            .takeIf { it.isNotBlank() }
+            ?: throw DochiException(CommonErrorCode.INTERNAL_ERROR, "Empty model response after sanitizing")
 
         chatMessageWriter.insert(
             ChatMessage.new(
@@ -308,7 +315,8 @@ class ChatUseCase(
 
         val context = chunks.withIndex().joinToString("\n\n") { (i, c) ->
             val pageInfo = c.page?.let { "p.$it" }.orEmpty()
-            val header = "[${i + 1}] ${c.documentTitle} $pageInfo".trim()
+            val sectionInfo = c.sectionPath?.takeIf { it.isNotBlank() }?.let { "- $it" }.orEmpty()
+            val header = "[${i + 1}] ${c.documentTitle} $sectionInfo $pageInfo".trim()
             "$header\n${c.text.take(1200)}"
         }
 
@@ -317,6 +325,8 @@ class ChatUseCase(
             - 아래 '문서 근거' 범위 안에서만 답한다.
             - 답변에 근거 번호를 [1], [2] 형태로 포함한다.
             - 근거가 부족하면 추측하지 말고 '$NO_EVIDENCE_ANSWER'라고 답한다.
+            - 추론 과정, 사고 과정, 내부 메모를 출력하지 않는다.
+            - `<think>` 같은 태그를 출력하지 말고 최종 답변만 작성한다.
 
             [문서 근거]
             $context

@@ -124,6 +124,10 @@ export const reindexDocument = (documentId: string) => {
   return api.post(`documents/${documentId}/reindex`).json<ReindexDocumentResponse>()
 }
 
+export const deleteDocument = async (documentId: string) => {
+  await api.delete(`documents/${documentId}`)
+}
+
 export const getDocumentDownloadUrl = (documentId: string) => {
   return api.get(`documents/${documentId}/download-url`).json<CreateDocumentDownloadUrlResponse>()
 }

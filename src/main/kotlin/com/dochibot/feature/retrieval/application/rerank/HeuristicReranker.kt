@@ -53,7 +53,16 @@ class HeuristicReranker : Reranker {
 
     private fun tokenOverlapScore(queryTokens: List<String>, candidate: ChunkCandidate): Double {
         if (queryTokens.isEmpty()) return 0.0
-        val textTokens = tokenize(candidate.text).toSet()
+        val searchableText = buildString(candidate.documentTitle.length + candidate.text.length + 64) {
+            append(candidate.documentTitle)
+            append(' ')
+            if (!candidate.sectionPath.isNullOrBlank()) {
+                append(candidate.sectionPath)
+                append(' ')
+            }
+            append(candidate.text)
+        }
+        val textTokens = tokenize(searchableText).toSet()
         if (textTokens.isEmpty()) return 0.0
         val hits = queryTokens.count { it in textTokens }
         return hits.toDouble() / max(1, queryTokens.size).toDouble()

@@ -38,6 +38,8 @@ class SpringAiConfig(
                 - 사용자의 질문에 한국어로 간결하고 정확하게 답한다.
                 - 불확실하면 추측하지 말고 필요한 정보를 되물어본다.
                 - 개인정보/민감정보는 저장/복원하지 않는다.
+                - 추론 과정이나 내부 메모를 노출하지 않는다.
+                - `<think>` 같은 태그 없이 최종 답변만 출력한다.
                 """.trimIndent()
             )
             .defaultAdvisors(memoryAdvisor)

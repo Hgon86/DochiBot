@@ -107,10 +107,10 @@ class DocumentIngestionProcessor(
         )
 
         val content = documentContentLoader.load(document.storageUri)
-        val pages = withContext(Dispatchers.IO) {
+        val sections = withContext(Dispatchers.IO) {
             documentTextExtractor.extract(document, content)
         }
-        val chunks = textChunkingService.chunk(pages)
+        val chunks = textChunkingService.chunk(documentTitle = document.title, sections = sections)
         if (chunks.isEmpty()) {
             throw IllegalStateException("추출된 텍스트가 없습니다: documentId=${job.documentId}")
         }
@@ -120,10 +120,27 @@ class DocumentIngestionProcessor(
         // 재시도/재처리 시 중복 적재를 방지하기 위해 기존 인덱스를 먼저 제거한다.
         documentIndexWriter.deleteByDocumentId(job.documentId)
 
-        // 최소 구현: 문서당 루트 섹션 1개 + 청크 저장
-        val rootSectionId = documentIndexWriter.insertRootSection(document)
+        val sectionIdsByIndex = documentIndexWriter.insertSections(
+            documentId = job.documentId,
+            sections = sections.map {
+                com.dochibot.feature.ingestionjob.repository.IndexedSectionInput(
+                    index = it.index,
+                    parentIndex = it.parentIndex,
+                    level = it.level,
+                    heading = it.heading,
+                    sectionPath = it.sectionPath,
+                    sectionText = it.text,
+                )
+            },
+        )
 
-        val texts = chunks.map { it.text }
+        val texts = chunks.map {
+            com.dochibot.common.util.text.SearchableChunkTextCodec.encode(
+                documentTitle = document.title,
+                sectionPath = it.sectionPath,
+                bodyText = it.text,
+            )
+        }
         val allEmbeddings = mutableListOf<FloatArray>()
 
         // 임베딩은 외부 호출일 수 있으므로 IO 컨텍스트에서 실행한다.
@@ -144,14 +161,19 @@ class DocumentIngestionProcessor(
             throw IllegalStateException("임베딩 개수가 청크 수와 다릅니다: chunks=${chunks.size}, embeddings=${allEmbeddings.size}")
         }
 
-        // Gate(dense)를 위해 최소 구현으로 섹션 임베딩을 함께 채운다.
-        // Phase 1에서는 루트 섹션 1개만 있으므로, 청크 임베딩 평균 벡터를 섹션 임베딩으로 사용한다.
-        val sectionEmbedding = averageEmbedding(allEmbeddings)
-        documentIndexWriter.updateSectionEmbedding(rootSectionId, sectionEmbedding)
+        chunks.groupBy { it.sectionIndex }
+            .forEach { (sectionIndex, sectionChunks) ->
+                val embeddings = sectionChunks.map { allEmbeddings[it.index] }
+                val sectionEmbedding = averageEmbedding(embeddings)
+                documentIndexWriter.updateSectionEmbedding(
+                    sectionId = sectionIdsByIndex[sectionIndex] ?: error("sectionId not found: $sectionIndex"),
+                    embedding = sectionEmbedding,
+                )
+            }
 
         documentIndexWriter.insertChunks(
             documentId = job.documentId,
-            sectionId = rootSectionId,
+            sectionIdsByIndex = sectionIdsByIndex,
             chunks = chunks,
             embeddings = allEmbeddings,
         )
