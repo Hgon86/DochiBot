@@ -6,7 +6,6 @@ import com.dochibot.domain.repository.ChatMessageRepository
 import com.dochibot.domain.repository.ChatSessionRepository
 import com.dochibot.domain.repository.UserRepository
 import com.dochibot.feature.chat.dto.ChatRequest
-import com.dochibot.feature.chat.dto.ChatResponse as ApiChatResponse
 import com.dochibot.feature.document.dto.CreateDocumentUploadUrlRequest
 import com.dochibot.feature.document.dto.CreateDocumentUploadUrlResponse
 import com.dochibot.feature.document.dto.FinalizeDocumentUploadRequest
@@ -197,15 +196,10 @@ class RagVerifyNoEvidenceE2eTest {
         ingestionProcessor.processBatch(maxJobs = 1)
 
         val chatResponse = webTestClient
-            .post()
-            .uri("/api/v1/chat")
-            .header("Authorization", "Bearer $token")
-            .bodyValue(ChatRequest(message = "RAG_TOKEN_001 이 뭐야?", topK = 10))
-            .exchange()
-            .expectStatus().isOk
-            .expectBody(ApiChatResponse::class.java)
-            .returnResult()
-            .responseBody!!
+            .streamChat(
+                token = token,
+                request = ChatRequest(message = "RAG_TOKEN_001 이 뭐야?", topK = 10),
+            )
 
         assertEquals("문서에서 찾을 수 없습니다.", chatResponse.answer)
         assertTrue(chatResponse.citations.isEmpty())
@@ -424,15 +418,10 @@ class RagVerifyAskFollowUpE2eTest {
         ingestionProcessor.processBatch(maxJobs = 1)
 
         val chatResponse = webTestClient
-            .post()
-            .uri("/api/v1/chat")
-            .header("Authorization", "Bearer $token")
-            .bodyValue(ChatRequest(message = "RAG_TOKEN_001 이 뭐야?", topK = 10))
-            .exchange()
-            .expectStatus().isOk
-            .expectBody(ApiChatResponse::class.java)
-            .returnResult()
-            .responseBody!!
+            .streamChat(
+                token = token,
+                request = ChatRequest(message = "RAG_TOKEN_001 이 뭐야?", topK = 10),
+            )
 
         assertTrue(chatResponse.answer.contains("정확한 근거를 찾기 어려워요."))
         assertTrue(chatResponse.citations.isEmpty())

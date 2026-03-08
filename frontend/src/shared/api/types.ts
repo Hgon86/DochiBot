@@ -95,6 +95,25 @@ export type ChatResponse = {
   sessionId: string
 }
 
+export type ChatStreamMetadataEvent = {
+  sessionId: string | null
+  citations: ChatCitation[]
+}
+
+export type ChatStreamDeltaEvent = {
+  delta: string | null
+}
+
+export type ChatStreamDoneEvent = {
+  sessionId: string | null
+  answer: string | null
+}
+
+export type ChatStreamErrorEvent = {
+  sessionId: string | null
+  message: string | null
+}
+
 export type HealthResponse = {
   status: string
 }

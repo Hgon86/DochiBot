@@ -1,4 +1,3 @@
-import { useMutation } from '@tanstack/react-query'
 import { LoaderCircle, SendHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -6,7 +5,7 @@ import remarkGfm from 'remark-gfm'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { sendChatMessage, toShortId } from '@/shared/api/admin'
+import { streamChatMessage, toShortId } from '@/shared/api/admin'
 import type { ChatCitation } from '@/shared/api/types'
 
 type UiMessage = {
@@ -92,6 +91,7 @@ export const ChatPage = () => {
   const [sessionId, setSessionId] = useState('')
   const [topK, setTopK] = useState(8)
   const [input, setInput] = useState('')
+  const [isStreaming, setIsStreaming] = useState(false)
   const [messages, setMessages] = useState<UiMessage[]>([
     {
       id: createMessageId(),
@@ -102,19 +102,22 @@ export const ChatPage = () => {
     },
   ])
 
-  const chatMutation = useMutation({
-    mutationFn: sendChatMessage,
-  })
+  const updateMessage = (messageId: string, updater: (message: UiMessage) => UiMessage) => {
+    setMessages(prev =>
+      prev.map(message => (message.id === messageId ? updater(message) : message))
+    )
+  }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
     const message = input.trim()
-    if (!message || chatMutation.isPending) {
+    if (!message || isStreaming) {
       return
     }
 
     setInput('')
+    const assistantMessageId = createMessageId()
     setMessages(prev => [
       ...prev,
       {
@@ -123,35 +126,70 @@ export const ChatPage = () => {
         content: message,
         citations: [],
       },
+      {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        citations: [],
+      },
     ])
 
     try {
-      const response = await chatMutation.mutateAsync({
-        message,
-        topK,
-        sessionId: sessionId.trim() || undefined,
-      })
+      setIsStreaming(true)
+      const response = await streamChatMessage(
+        {
+          message,
+          topK,
+          sessionId: sessionId.trim() || undefined,
+        },
+        {
+          onMetadata: event => {
+            if (event.sessionId) {
+              setSessionId(event.sessionId)
+            }
+            updateMessage(assistantMessageId, current => ({
+              ...current,
+              citations: event.citations,
+            }))
+          },
+          onDelta: event => {
+            const delta = event.delta ?? ''
+            if (!delta) {
+              return
+            }
+            updateMessage(assistantMessageId, current => ({
+              ...current,
+              content: `${current.content}${delta}`,
+            }))
+          },
+          onDone: event => {
+            if (event.sessionId) {
+              setSessionId(event.sessionId)
+            }
+            if (event.answer) {
+              updateMessage(assistantMessageId, current => ({
+                ...current,
+                content: sanitizeAssistantContent(event.answer ?? current.content),
+              }))
+            }
+          },
+        }
+      )
 
       setSessionId(response.sessionId)
-      setMessages(prev => [
-        ...prev,
-        {
-          id: createMessageId(),
-          role: 'assistant',
-          content: sanitizeAssistantContent(response.answer),
-          citations: response.citations,
-        },
-      ])
+      updateMessage(assistantMessageId, current => ({
+        ...current,
+        content: sanitizeAssistantContent(response.answer),
+        citations: response.citations,
+      }))
     } catch (error) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: createMessageId(),
-          role: 'assistant',
-          content: error instanceof Error ? error.message : '요청 처리 중 오류가 발생했습니다.',
-          citations: [],
-        },
-      ])
+      updateMessage(assistantMessageId, current => ({
+        ...current,
+        content: error instanceof Error ? error.message : '요청 처리 중 오류가 발생했습니다.',
+        citations: [],
+      }))
+    } finally {
+      setIsStreaming(false)
     }
   }
 
@@ -260,7 +298,7 @@ export const ChatPage = () => {
                 </div>
               ))}
 
-              {chatMutation.isPending ? (
+              {isStreaming ? (
                 <div className='flex justify-start'>
                   <div className='inline-flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-foreground/75'>
                     <LoaderCircle className='h-3.5 w-3.5 animate-spin' />
@@ -282,7 +320,7 @@ export const ChatPage = () => {
                   rows={3}
                   className='min-h-[96px] w-full resize-y rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
                 />
-                <Button type='submit' disabled={!input.trim() || chatMutation.isPending}>
+                <Button type='submit' disabled={!input.trim() || isStreaming}>
                   <SendHorizontal className='h-4 w-4' />
                   전송
                 </Button>

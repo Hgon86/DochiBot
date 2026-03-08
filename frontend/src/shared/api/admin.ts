@@ -1,6 +1,10 @@
 import { api, publicApi } from '@/shared/api/http'
 import type {
   ChatResponse,
+  ChatStreamDeltaEvent,
+  ChatStreamDoneEvent,
+  ChatStreamErrorEvent,
+  ChatStreamMetadataEvent,
   CreateDocumentDownloadUrlResponse,
   CreateDocumentUploadUrlResponse,
   DocumentResponse,
@@ -147,13 +151,129 @@ export const listIngestionJobs = (params?: {
   return api.get('ingestion-jobs', { searchParams }).json<ListIngestionJobsResponse>()
 }
 
-export const sendChatMessage = (payload: { message: string; sessionId?: string; topK: number }) => {
-  return api
-    .post('chat', {
-      json: payload,
-      timeout: 180_000,
-    })
-    .json<ChatResponse>()
+const parseSseEventBlock = (block: string) => {
+  const lines = block.split(/\r?\n/)
+  let event = 'message'
+  const dataLines: string[] = []
+
+  lines.forEach(line => {
+    if (line.startsWith('event:')) {
+      event = line.slice(6).trim()
+      return
+    }
+
+    if (line.startsWith('data:')) {
+      dataLines.push(line.slice(5).trim())
+    }
+  })
+
+  return {
+    event,
+    data: dataLines.join('\n'),
+  }
+}
+
+export const streamChatMessage = async (
+  payload: { message: string; sessionId?: string; topK: number },
+  handlers: {
+    onMetadata?: (event: ChatStreamMetadataEvent) => void
+    onDelta?: (event: ChatStreamDeltaEvent) => void
+    onDone?: (event: ChatStreamDoneEvent) => void
+  } = {}
+) => {
+  const response = await api.post('chat/stream', {
+    json: payload,
+    timeout: false,
+    headers: {
+      accept: 'text/event-stream',
+    },
+  })
+
+  const stream = response.body
+  if (!stream) {
+    throw new Error('스트리밍 응답 본문이 비어 있습니다.')
+  }
+
+  const reader = stream.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let sessionId = payload.sessionId ?? ''
+  let citations: ChatResponse['citations'] = []
+  let answer = ''
+
+  const processBlock = (block: string) => {
+    const parsed = parseSseEventBlock(block)
+    if (!parsed.data) {
+      return
+    }
+
+    if (parsed.event === 'metadata') {
+      const event = JSON.parse(parsed.data) as ChatStreamMetadataEvent
+      sessionId = event.sessionId ?? sessionId
+      citations = event.citations
+      handlers.onMetadata?.(event)
+      return
+    }
+
+    if (parsed.event === 'delta') {
+      const event = JSON.parse(parsed.data) as ChatStreamDeltaEvent
+      const delta = event.delta ?? ''
+      answer += delta
+      handlers.onDelta?.(event)
+      return
+    }
+
+    if (parsed.event === 'done') {
+      const event = JSON.parse(parsed.data) as ChatStreamDoneEvent
+      if (event.sessionId) {
+        sessionId = event.sessionId
+      }
+      if (event.answer) {
+        answer = event.answer
+      }
+      handlers.onDone?.(event)
+      return
+    }
+
+    if (parsed.event === 'error') {
+      const event = JSON.parse(parsed.data) as ChatStreamErrorEvent
+      throw new Error(event.message ?? '답변 생성 중 오류가 발생했습니다.')
+    }
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done })
+      buffer = buffer.replace(/\r\n/g, '\n')
+
+      let separatorIndex = buffer.indexOf('\n\n')
+      while (separatorIndex >= 0) {
+        const block = buffer.slice(0, separatorIndex).trim()
+        buffer = buffer.slice(separatorIndex + 2)
+        if (block) {
+          processBlock(block)
+        }
+        separatorIndex = buffer.indexOf('\n\n')
+      }
+
+      if (done) {
+        const rest = buffer.trim()
+        if (rest) {
+          processBlock(rest)
+        }
+        break
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  return {
+    answer,
+    citations,
+    sessionId,
+  } satisfies ChatResponse
 }
 
 export const getHealthStatus = () => {

@@ -6,7 +6,6 @@ import com.dochibot.domain.repository.UserRepository
 import com.dochibot.domain.repository.ChatMessageRepository
 import com.dochibot.domain.repository.ChatSessionRepository
 import com.dochibot.feature.chat.dto.ChatRequest
-import com.dochibot.feature.chat.dto.ChatResponse as ApiChatResponse
 import com.dochibot.feature.document.dto.CreateDocumentUploadUrlRequest
 import com.dochibot.feature.document.dto.CreateDocumentUploadUrlResponse
 import com.dochibot.feature.document.dto.FinalizeDocumentUploadRequest
@@ -205,16 +204,10 @@ class RagE2eSmokeTest {
         ingestionProcessor.processBatch(maxJobs = 1)
 
         val chatResponse = webTestClient
-            .post()
-            .uri("/api/v1/chat")
-            .header("Authorization", "Bearer $token")
-            // 요청 topK가 크더라도, 서버는 `dochibot.rag.context.top-n`(=2)로 상한 처리한다.
-            .bodyValue(ChatRequest(message = "RAG_TOKEN_001 이 뭐야?", topK = 50))
-            .exchange()
-            .expectStatus().isOk
-            .expectBody(ApiChatResponse::class.java)
-            .returnResult()
-            .responseBody!!
+            .streamChat(
+                token = token,
+                request = ChatRequest(message = "RAG_TOKEN_001 이 뭐야?", topK = 50),
+            )
 
         assertTrue(chatResponse.answer.isNotBlank())
         assertTrue(chatResponse.citations.isNotEmpty())
@@ -276,15 +269,10 @@ class RagE2eSmokeTest {
 
         // 인제션을 수행하지 않아 chunks가 없으므로, 근거 없음 정책이 동작해야 한다.
         val chatResponse = webTestClient
-            .post()
-            .uri("/api/v1/chat")
-            .header("Authorization", "Bearer $token")
-            .bodyValue(ChatRequest(message = "이 문서의 핵심 요약은 뭐야?", topK = 5))
-            .exchange()
-            .expectStatus().isOk
-            .expectBody(ApiChatResponse::class.java)
-            .returnResult()
-            .responseBody!!
+            .streamChat(
+                token = token,
+                request = ChatRequest(message = "이 문서의 핵심 요약은 뭐야?", topK = 5),
+            )
 
         assertEquals("문서에서 찾을 수 없습니다.", chatResponse.answer)
         assertTrue(chatResponse.citations.isEmpty())

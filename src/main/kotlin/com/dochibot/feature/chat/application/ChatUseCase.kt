@@ -9,6 +9,7 @@ import com.dochibot.domain.enums.ChatRole
 import com.dochibot.domain.repository.ChatSessionRepository
 import com.dochibot.feature.chat.dto.ChatRequest
 import com.dochibot.feature.chat.dto.ChatResponse
+import com.dochibot.feature.chat.dto.ChatStreamEvent
 import com.dochibot.feature.chat.exception.ChatErrorCode
 import com.dochibot.common.util.log.StructuredLogSupport
 import com.dochibot.feature.retrieval.application.HybridRetrievalService
@@ -22,12 +23,16 @@ import com.dochibot.common.config.DochibotRagProperties
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.withContext
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.memory.ChatMemory
 import org.springframework.ai.embedding.EmbeddingModel
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.DuplicateKeyException
+import org.springframework.http.codec.ServerSentEvent
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.stereotype.Service
 import java.util.UUID
@@ -77,15 +82,94 @@ class ChatUseCase(
         val appliedMinTokenCoverage: Double? = null,
     )
 
+    private data class PreparedExecution(
+        val session: ChatSession,
+        val sessionKey: String,
+        val requestMessage: String,
+        val policyDecision: PolicyDecision? = null,
+        val citations: List<ChatResponse.Citation> = emptyList(),
+        val citationsJson: String = "[]",
+        val contextMessage: String? = null,
+    )
+
     /**
-     * 사용자 질문을 처리하고 답변을 생성한다.
-     * ChatMemoryAdvisor를 통해 대화 윈도우 메모리를 유지한다.
-     *
-     * @param jwt 인증 주체(JWT)
-     * @param request 채팅 요청
-     * @return 채팅 응답
+     * 사용자 질문을 SSE 스트림으로 처리한다.
      */
-    suspend fun execute(jwt: Jwt, request: ChatRequest): ChatResponse {
+    fun stream(jwt: Jwt, request: ChatRequest): Flow<ServerSentEvent<ChatStreamEvent>> = flow {
+        val prepared = prepareExecution(jwt = jwt, request = request)
+
+        emit(
+            sse(
+                event = "metadata",
+                data = ChatStreamEvent(
+                    sessionId = prepared.sessionKey,
+                    citations = prepared.citations,
+                ),
+            )
+        )
+
+        if (prepared.policyDecision != null) {
+            val answer = prepared.policyDecision.answer
+            persistAssistantMessage(session = prepared.session, answer = answer, citationsJson = "[]")
+            if (answer.isNotBlank()) {
+                emit(sse(event = "delta", data = ChatStreamEvent(delta = answer)))
+            }
+            emit(sse(event = "done", data = ChatStreamEvent(sessionId = prepared.sessionKey, answer = answer)))
+            return@flow
+        }
+
+        val rawAnswer = StringBuilder()
+        val sanitizer = ChatAnswerFormatter.StreamingAnswerSanitizer()
+
+        try {
+            chatClient.prompt()
+                .system(prepared.contextMessage ?: buildContextMessage(emptyList()))
+                .user(prepared.requestMessage)
+                .advisors {
+                    it.param(ChatMemory.CONVERSATION_ID, prepared.sessionKey)
+                }
+                .stream()
+                .content()
+                .asFlow()
+                .collect { chunk ->
+                    rawAnswer.append(chunk)
+                    val visibleDelta = sanitizer.consume(chunk)
+                    if (visibleDelta.isNotEmpty()) {
+                        emit(sse(event = "delta", data = ChatStreamEvent(delta = visibleDelta)))
+                    }
+                }
+
+            val tail = sanitizer.finish()
+            if (tail.isNotEmpty()) {
+                emit(sse(event = "delta", data = ChatStreamEvent(delta = tail)))
+            }
+
+            val answer = ChatAnswerFormatter.sanitizeAnswer(rawAnswer.toString())
+                .takeIf { it.isNotBlank() }
+                ?: throw DochiException(CommonErrorCode.INTERNAL_ERROR, "Empty model response after sanitizing")
+
+            persistAssistantMessage(
+                session = prepared.session,
+                answer = answer,
+                citationsJson = prepared.citationsJson,
+            )
+
+            emit(sse(event = "done", data = ChatStreamEvent(sessionId = prepared.sessionKey, answer = answer)))
+        } catch (ex: Exception) {
+            log.error(ex) { "Chat streaming failed: sessionKey=${prepared.sessionKey}" }
+            emit(
+                sse(
+                    event = "error",
+                    data = ChatStreamEvent(
+                        sessionId = prepared.sessionKey,
+                        message = "답변 생성 중 오류가 발생했습니다.",
+                    ),
+                )
+            )
+        }
+    }
+
+    private suspend fun prepareExecution(jwt: Jwt, request: ChatRequest): PreparedExecution {
         val userId = runCatching { UUID.fromString(jwt.subject) }
             .getOrElse {
                 throw DochiException(CommonErrorCode.AUTH_INVALID_TOKEN, "Invalid subject format", it)
@@ -114,8 +198,6 @@ class ChatUseCase(
 
         val responseTopK = request.topK.coerceIn(1, ragProperties.context.topN)
         val retrievalTopK = if (ragProperties.verify.enabled) {
-            // 검증 규칙(top1-top2 gap, 문서 분산도 등)이 동작할 만큼은 확보하되,
-            // 최종 컨텍스트 상한(context.topN) 범위를 벗어나지 않게 한다.
             maxOf(responseTopK, 2, ragProperties.verify.maxChunksToCheck)
                 .coerceAtMost(ragProperties.context.topN)
         } else {
@@ -131,16 +213,6 @@ class ChatUseCase(
         val policyDecision = decidePolicy(queryText = request.message, chunks = chunks)
         recordVerifyMetric(policyDecision = policyDecision, chunks = chunks)
         if (policyDecision != null) {
-            // 근거가 없거나(기존), 근거가 부족하면(verify) 모델을 호출하지 않는다.
-            chatMessageWriter.insert(
-                ChatMessage.new(
-                    chatSessionId = session.id,
-                    role = ChatRole.ASSISTANT,
-                    content = policyDecision.answer,
-                    citationsJson = "[]",
-                ),
-            )
-
             log.warn {
                 StructuredLogSupport.toJsonLog(
                     objectMapper = objectMapper,
@@ -164,10 +236,11 @@ class ChatUseCase(
                 )
             }
 
-            return ChatResponse(
-                answer = policyDecision.answer,
-                citations = emptyList(),
-                sessionId = sessionKey,
+            return PreparedExecution(
+                session = session,
+                sessionKey = sessionKey,
+                requestMessage = request.message,
+                policyDecision = policyDecision,
             )
         }
 
@@ -202,8 +275,6 @@ class ChatUseCase(
             )
         }
 
-        val contextMessage = buildContextMessage(chunksForAnswer)
-
         val citationsJson = withContext(Dispatchers.IO) {
             runCatching { objectMapper.writeValueAsString(citations) }
                 .getOrElse { ex ->
@@ -212,21 +283,17 @@ class ChatUseCase(
                 }
         }
 
-        val rawAnswer: String = withContext(Dispatchers.IO) {
-            chatClient.prompt()
-                .system(contextMessage)
-                .user(request.message)
-                .advisors {
-                    it.param(ChatMemory.CONVERSATION_ID, sessionKey)
-                }
-                .call()
-                .content()
-        } ?: throw DochiException(CommonErrorCode.INTERNAL_ERROR, "Empty model response")
+        return PreparedExecution(
+            session = session,
+            sessionKey = sessionKey,
+            requestMessage = request.message,
+            citations = citations,
+            citationsJson = citationsJson,
+            contextMessage = buildContextMessage(chunksForAnswer),
+        )
+    }
 
-        val answer = ChatAnswerFormatter.sanitizeAnswer(rawAnswer)
-            .takeIf { it.isNotBlank() }
-            ?: throw DochiException(CommonErrorCode.INTERNAL_ERROR, "Empty model response after sanitizing")
-
+    private suspend fun persistAssistantMessage(session: ChatSession, answer: String, citationsJson: String) {
         chatMessageWriter.insert(
             ChatMessage.new(
                 chatSessionId = session.id,
@@ -235,12 +302,13 @@ class ChatUseCase(
                 citationsJson = citationsJson,
             ),
         )
+    }
 
-        return ChatResponse(
-            answer = answer,
-            citations = citations,
-            sessionId = sessionKey,
-        )
+    private fun sse(event: String, data: ChatStreamEvent): ServerSentEvent<ChatStreamEvent> {
+        return ServerSentEvent.builder<ChatStreamEvent>()
+            .event(event)
+            .data(data)
+            .build()
     }
 
     /**

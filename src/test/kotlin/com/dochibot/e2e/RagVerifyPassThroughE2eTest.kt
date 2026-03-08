@@ -4,7 +4,6 @@ import com.dochibot.domain.entity.User
 import com.dochibot.domain.enums.UserRole
 import com.dochibot.domain.repository.UserRepository
 import com.dochibot.feature.chat.dto.ChatRequest
-import com.dochibot.feature.chat.dto.ChatResponse as ApiChatResponse
 import com.dochibot.feature.document.dto.CreateDocumentUploadUrlRequest
 import com.dochibot.feature.document.dto.CreateDocumentUploadUrlResponse
 import com.dochibot.feature.document.dto.FinalizeDocumentUploadRequest
@@ -186,15 +185,10 @@ class RagVerifyPassThroughE2eTest {
         ingestionProcessor.processBatch(maxJobs = 1)
 
         val chatResponse = webTestClient
-            .post()
-            .uri("/api/v1/chat")
-            .header("Authorization", "Bearer $token")
-            .bodyValue(ChatRequest(message = "RAG_TOKEN_001 이 뭐야?", topK = 10))
-            .exchange()
-            .expectStatus().isOk
-            .expectBody(ApiChatResponse::class.java)
-            .returnResult()
-            .responseBody!!
+            .streamChat(
+                token = token,
+                request = ChatRequest(message = "RAG_TOKEN_001 이 뭐야?", topK = 10),
+            )
 
         assertTrue(chatResponse.answer.contains("테스트 답변"))
         assertTrue(chatResponse.citations.isNotEmpty())
