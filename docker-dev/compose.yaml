@@ -87,6 +87,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-bge-m3}
+      AI_EMBEDDING_DIMS: ${AI_EMBEDDING_DIMS:-1024}
       NVIDIA_BASE_URL: ${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       NVIDIA_CHAT_MODEL: ${NVIDIA_CHAT_MODEL:-meta/llama-3.1-70b-instruct}

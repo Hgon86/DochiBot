@@ -83,7 +83,7 @@ export const AdminShell = () => {
   }
 
   return (
-    <div className='relative min-h-screen overflow-hidden bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 text-foreground'>
+    <div className='relative min-h-screen overflow-hidden bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 text-foreground md:h-dvh'>
       <a
         href='#main-content'
         className='sr-only z-50 rounded-md bg-white px-3 py-2 text-sm text-black focus:not-sr-only focus:fixed focus:left-3 focus:top-3'
@@ -93,7 +93,7 @@ export const AdminShell = () => {
       <div className='pointer-events-none absolute left-[-180px] top-[-220px] h-[520px] w-[520px] rounded-full bg-linear-to-br from-blue-500/25 to-purple-500/20 blur-3xl motion-reduce:hidden' />
       <div className='pointer-events-none absolute bottom-[-200px] right-[-120px] h-[540px] w-[540px] rounded-full bg-linear-to-br from-fuchsia-500/20 to-cyan-500/15 blur-3xl motion-reduce:hidden' />
 
-      <div className='relative mx-auto flex min-h-screen w-full max-w-[1400px] gap-5 px-4 py-5 md:px-6 md:py-6'>
+      <div className='relative mx-auto flex min-h-screen w-full max-w-[1400px] gap-5 px-4 py-5 md:h-dvh md:min-h-0 md:overflow-hidden md:px-6 md:py-6'>
         <aside className='hidden w-80 shrink-0 flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl md:flex'>
           <div className='mb-6 rounded-2xl border border-white/10 bg-linear-to-br from-white/10 to-white/[0.03] p-5'>
             <div className='flex items-center gap-2 text-sm text-foreground/75'>
@@ -141,7 +141,7 @@ export const AdminShell = () => {
           </div>
         </aside>
 
-        <div className='flex min-w-0 flex-1 flex-col gap-4'>
+        <div className='flex min-w-0 flex-1 flex-col gap-4 md:min-h-0'>
           <header className='rounded-2xl border border-white/10 bg-black/20 px-4 py-3 backdrop-blur-xl md:px-5'>
             <div className='flex flex-wrap items-center justify-between gap-3'>
               <div>
@@ -201,7 +201,7 @@ export const AdminShell = () => {
 
           <main
             id='main-content'
-            className='min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4 backdrop-blur-xl md:p-6'
+            className='min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4 backdrop-blur-xl md:flex md:min-h-0 md:flex-col md:overflow-hidden md:p-6'
           >
             <Outlet />
           </main>

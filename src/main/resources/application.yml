@@ -29,7 +29,7 @@ spring:
           model: ${OLLAMA_CHAT_MODEL:llama3.2}
       embedding:
         options:
-          model: ${OLLAMA_EMBEDDING_MODEL:mxbai-embed-large}
+          model: ${OLLAMA_EMBEDDING_MODEL:bge-m3}
 
     openai:
       base-url: ${NVIDIA_BASE_URL:https://integrate.api.nvidia.com}
@@ -107,7 +107,7 @@ dochibot:
 
   ai:
     embedding:
-      model: ${AI_EMBEDDING_MODEL:${OLLAMA_EMBEDDING_MODEL:mxbai-embed-large}}
+      model: ${AI_EMBEDDING_MODEL:${OLLAMA_EMBEDDING_MODEL:bge-m3}}
       dims: ${AI_EMBEDDING_DIMS:1024}
     chat:
       memory:

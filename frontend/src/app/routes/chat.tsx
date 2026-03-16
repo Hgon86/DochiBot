@@ -1,5 +1,5 @@
 import { LoaderCircle, SendHorizontal } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -92,6 +92,7 @@ export const ChatPage = () => {
   const [topK, setTopK] = useState(8)
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  const conversationScrollRef = useRef<HTMLDivElement | null>(null)
   const [messages, setMessages] = useState<UiMessage[]>([
     {
       id: createMessageId(),
@@ -107,6 +108,26 @@ export const ChatPage = () => {
       prev.map(message => (message.id === messageId ? updater(message) : message))
     )
   }
+
+  const scrollTrigger = messages
+    .map(message => `${message.id}:${message.content.length}:${message.citations.length}`)
+    .join('|')
+
+  useEffect(() => {
+    if (!scrollTrigger) {
+      return
+    }
+
+    const element = conversationScrollRef.current
+    if (!element) {
+      return
+    }
+
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight
+    if (distanceFromBottom <= 120) {
+      element.scrollTop = element.scrollHeight
+    }
+  }, [scrollTrigger])
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -201,22 +222,25 @@ export const ChatPage = () => {
   }
 
   return (
-    <div className='space-y-5'>
-      <section className='rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.10] to-white/[0.03] p-5 shadow-lg shadow-black/10'>
+    <div className='space-y-5 md:flex md:h-full md:min-h-0 md:flex-col md:space-y-0 md:gap-5'>
+      <section className='shrink-0 rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.10] to-white/[0.03] p-5 shadow-lg shadow-black/10'>
         <h1 className='text-2xl font-semibold text-white'>Chat Playground</h1>
         <p className='mt-2 text-sm text-foreground/70'>
           질문을 보내면 RAG 기반 답변과 citation을 함께 확인할 수 있습니다.
         </p>
       </section>
 
-      <section className='grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]'>
-        <article className='min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.09] to-white/[0.03]'>
-          <div className='flex min-h-[580px] flex-col'>
+      <section className='grid items-start gap-4 md:min-h-0 md:flex-1 md:items-stretch xl:grid-cols-[minmax(0,1fr)_320px]'>
+        <article className='min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.09] to-white/[0.03] md:flex md:min-h-0 md:flex-col'>
+          <div className='flex min-h-[580px] flex-col md:h-full md:min-h-[580px] md:flex-1'>
             <div className='border-b border-white/10 px-4 py-3 text-sm text-foreground/75'>
               Conversation
             </div>
 
-            <div className='flex-1 space-y-4 overflow-y-auto px-4 py-4'>
+            <div
+              ref={conversationScrollRef}
+              className='flex-1 space-y-4 overflow-y-auto px-4 py-4 md:min-h-0'
+            >
               {messages.map(message => (
                 <div
                   key={message.id}
@@ -308,7 +332,7 @@ export const ChatPage = () => {
               ) : null}
             </div>
 
-            <form onSubmit={handleSubmit} className='border-t border-white/10 p-4'>
+            <form onSubmit={handleSubmit} className='shrink-0 border-t border-white/10 p-4'>
               <div className='flex items-end gap-2'>
                 <textarea
                   value={input}
@@ -330,7 +354,7 @@ export const ChatPage = () => {
           </div>
         </article>
 
-        <article className='min-w-0 space-y-4 rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.09] to-white/[0.03] p-4 xl:sticky xl:top-6'>
+        <article className='min-w-0 self-start space-y-4 rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.09] to-white/[0.03] p-4 md:max-h-full md:overflow-y-auto'>
           <div>
             <h2 className='text-sm font-medium text-white'>Chat Options</h2>
             <p className='mt-1 text-xs text-foreground/65'>질답 테스트 설정값을 조절합니다.</p>
