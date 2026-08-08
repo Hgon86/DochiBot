@@ -15,10 +15,11 @@
 ## 2) SoT(Source of Truth) 우선순위
 
 - DB 스키마 단일 진실 소스: `src/main/resources/db/migration/V1__init.sql`
-- 런타임 설정: `src/main/resources/application.yml`, `docker-dev/.env`, `docker-dev/compose.yaml`
+- 런타임 설정: `src/main/resources/application.yml`, `docker-dev/compose.yaml` (env 기본값은 compose 내부에 명시)
 - 제품/아키텍처 의도: `docs/PRD.md`, `docs/SPEC.md`
 - API 계약: `docs/phase1-api.md` + 실제 `controller/dto` + 테스트 코드
 - 리트리벌/인제션 상세: `docs/retrieval.md`, `docs/ingestion-pipeline.md`, `docs/phase2.md`
+- 인증/JWT: `docs/auth-jwt.md` | S3: `docs/s3-config.md` | 대화 메모리: `docs/chat-memory-strategy.md`
 
 ## 3) Tech Stack (Compressed)
 
@@ -47,7 +48,7 @@
 ```text
 [docs]|root: ./docs
 |00-core:{README.md,PRD.md,SPEC.md}
-|01-api:{phase1-api.md,auth-jwt.md,s3-config.md}
+|01-api:{phase1-api.md,auth-jwt.md,s3-config.md,chat-memory-strategy.md}
 |02-data:{db-schema.md}
 |03-rag:{retrieval.md,ingestion-pipeline.md,phase2.md}
 |04-note:{PRD=무엇/왜,SPEC=어떻게,DDL-SoT=V1__init.sql}
@@ -57,20 +58,20 @@
 
 ```text
 [code]|backend-root: ./src/main/kotlin/com/dochibot
-|common:{config/{SecurityConfig,S3Config,CorsConfig}.kt,exception/GlobalExceptionHandler.kt,storage/S3PresignedUrlService.kt,util/}
-|domain:{entity/{User,Document,DocumentChunk,DocumentIngestionJob}.kt,enums/{DocumentStatus,JobStatus,SourceType}.kt,repository/*Repository.kt}
-|feature/auth:{controller/{AuthController,Oauth2Controller}.kt,service/AuthService.kt,config/JwtProperties.kt,dto/,exception/,util/JwtProvider.kt}
-|feature/chat:{controller/ChatController.kt,application/ChatUseCase.kt,dto/,exception/}
-|feature/document:{controller/DocumentController.kt,application/{CreateDocumentUploadUrlUseCase,FinalizeDocumentUploadUseCase,DocumentUploadPolicy,ListDocumentsUseCase,GetDocumentUseCase,CreateDocumentDownloadUrlUseCase,ReindexDocumentUseCase}.kt,dto/}
-|feature/ingestionjob:{controller/IngestionJobController.kt,application/IngestionJobWorker.kt,dto/,repository/,exception/}
-|feature/retrieval:{application/{RetrievalPipeline,DenseRetriever,SparseRetriever,RrfFusion}.kt,application/rerank/{Reranker,CrossEncoderReranker,LlmJudgeReranker}.kt,application/verify/,dto/,repository/,infrastructure/{metrics/,log/}}
-|feature/health:{controller/HealthController.kt,dto/}
+|common:{config/{CorsConfig,DochibotAiProperties,DochibotIngestionProperties,DochibotRagProperties,FlywayConfig,OpenAiClientConfig,R2dbcConfig,RedisConfig,RequestIdWebFilter,SpringAiConfig}.kt,exception/{GlobalExceptionHandler,ApiErrorResponse,CommonErrorCode,DochiException,ErrorCode,ErrorI18nSupport}.kt,storage/{config/{S3Config,S3Properties},service/S3Service,util/S3StorageUtils}.kt,util/{id/Uuid7Generator,log/StructuredLogSupport,text/SearchableChunkTextCodec}.kt}
+|domain:{entity/{BasePersistableUuidEntity,User,Document,DocumentIngestionJob,ChatSession,ChatMessage}.kt,enums/{AuthProvider,ChatRole,DocumentLanguage,DocumentSourceType,DocumentStatus,IngestionJobStatus,UserRole}.kt,repository/{UserRepository,DocumentRepository,DocumentIngestionJobRepository,ChatSessionRepository,ChatMessageRepository}.kt}
+|feature/auth:{controller/{AuthController,Oauth2Controller}.kt,service/{AuthService,OAuth2UserService,RefreshTokenService}.kt,config/{SecurityConfig,DochibotWebProperties,OAuth2ClientConfig,OAuth2Properties}.kt,dto/,exception/,util/{JwtUtils,AuthCookies}.kt}
+|feature/chat:{controller/ChatController.kt,application/{ChatUseCase,ChatAnswerFormatter}.kt,repository/ChatMessageWriter.kt,dto/,exception/}
+|feature/document:{controller/DocumentController.kt,application/{CreateDocumentUploadUrlUseCase,CreateDocumentDownloadUrlUseCase,DeleteDocumentUseCase,DocumentUploadPolicy,FinalizeDocumentUploadUseCase,GetDocumentUseCase,ListDocumentsUseCase,ReindexDocumentUseCase}.kt,dto/}
+|feature/ingestionjob:{controller/IngestionJobController.kt,application/{DocumentContentLoader,DocumentIngestionProcessor,DocumentTextExtractor,IngestionJobService,IngestionJobWorker,ListIngestionJobsUseCase,MarkdownSectionParser,TextChunkingService}.kt,repository/DocumentIndexWriter.kt,dto/,exception/NonRetryableIngestionException.kt}
+|feature/retrieval:{application/{HybridRetrievalService,RrfFusion}.kt,application/rerank/{Reranker,RerankerRouter,HeuristicReranker,CrossEncoderReranker,LlmJudgeReranker,RerankModel,RerankedChunk,RerankInput}.kt,application/verify/{EvidenceVerifier,DefaultEvidenceVerifier,QueryTypeClassifier,QueryType,VerifyPolicy,EvidenceVerification}.kt,repository/{SectionRetrievalRepository,ChunkRetrievalRepository}.kt,dto/{SectionCandidate,ChunkCandidate}.kt,infrastructure/{metrics/RetrievalMetrics,log/RetrievalStructuredLogger}.kt}
+|feature/health:{controller/HealthController.kt,dto/HealthResponse.kt}
 [frontend]|root: ./frontend/src
 |app:{router.tsx,routes/{login,oauth-callback,dashboard,documents,document-detail,ingestion-jobs,chat,monitoring}.tsx}
 |shared/api:{http.ts(ky instances+auth interceptor),admin.ts(all API functions),types.ts(response types)}
 |shared/auth:{session.ts(zustand token store),require-auth.tsx(route guard),use-auth.ts(login hook),use-current-user.ts(me query)}
 |shared/lib:{utils.ts}
-|components:{layout/admin-shell.tsx,ui/{button,input,card,badge,...}.tsx}
+|components:{layout/admin-shell.tsx,ui/{button,input,card,badge,alert,textarea,...}.tsx}
 ```
 
 ## 6) API Endpoint Index (Compressed)
@@ -79,26 +80,26 @@
 [api]|base: /api/v1 | all suspend fun (WebFlux coroutine)
 |auth: POST login | POST refresh | POST logout | GET me
 |auth/oauth2: GET authorize/{provider} | GET callback/{provider}
-|documents: POST upload-url | POST (finalize) | GET (list?status&limit&offset) | GET {id} | GET {id}/download-url | POST {id}/reindex
-|ingestion-jobs: GET (list?status&limit&offset)
-|chat: POST (query, sessionId, topK)
+|documents: POST upload-url | POST (finalize) | GET (list?status&limit&offset) | GET {id} | GET {id}/download-url | POST {id}/reindex | DELETE {id}
+|ingestion-jobs: GET (list?documentId&limit&offset)
+|chat: POST /stream (SSE, message+sessionId+topK)
 |health: GET (status)
-|auth-note: login/refresh/logout/oauth2 → publicApi(no Bearer) | 나머지 → api(Bearer auto-inject)
-|upload-flow: POST upload-url → presigned PUT to S3 → POST finalize → IngestionJob auto-created
+|auth-note: login/refresh/logout/oauth2/*/health → publicApi(no Bearer) | documents/ingestion-jobs → api(Bearer, ADMIN) | chat → api(Bearer, USER/ADMIN)
+|upload-flow: POST upload-url → presigned PUT to S3(native fetch) → POST finalize → IngestionJob auto-created
 ```
 
 ## 7) Infrastructure (Compressed)
 
 ```text
-[infra]|compose: ./docker-dev/compose.yaml | env: ./docker-dev/.env
+[infra]|compose: ./docker-dev/compose.yaml | env: compose 내부 기본값 사용(별도 .env 불필요, 오버라이드는 환경변수)
 |services:
   postgres(pgvector:pg17):5432 | redis(7-alpine):6379
   seaweedfs(S3-compat):8333,filer:8888,master:9333 | ollama:11434
-  cross-encoder:8001(profile:cross-encoder,optional) | api:8080(profile:api,optional)
+  cross-encoder:8001(profile:cross-encoder,optional, build 필요) | api:8080(profile:api,optional, build 필요)
 |local-dev: docker compose up(postgres,redis,seaweedfs,ollama) → IntelliJ 백엔드(:8080) → pnpm -C frontend dev(:5173)
 |proxy: vite dev server /api/** → localhost:8080 (frontend/vite.config.ts)
 |s3-flow: presigned PUT URL 발급(백엔드) → 브라우저에서 S3 직접 업로드(native fetch) → finalize(백엔드)
-|frontend-env: VITE_API_BASE_URL=/api/v1 | VITE_DEV_BYPASS_AUTH=true(개발시 인증 우회)
+|frontend-env: VITE_API_BASE_URL=/api/v1(기본) | VITE_DEV_BYPASS_AUTH=true(개발시 인증 우회)
 ```
 
 ## 8) Test Index (Compressed)
@@ -106,13 +107,16 @@
 ```text
 [test]|root: ./src/test/kotlin/com/dochibot
 |config: src/test/resources/application-test.yml
-|e2e:{RagE2eSmokeTest,RagVerifyPassThroughE2eTest,RagVerifyPolicyE2eTest}.kt
-|feature/document:{DocumentUploadPolicyTest}.kt
-|feature/retrieval:{RetrievalBenchmarkTest,RetrievalIntegrationTest,Phase2EvalRunnerTest,Phase2EvalSetParseTest}.kt
+|e2e:{RagE2eSmokeTest,RagVerifyPassThroughE2eTest,RagVerifyPolicyE2eTest,ChatStreamTestSupport}.kt
+|feature/chat:{ChatAnswerFormatterTest}.kt
+|feature/document:{DocumentUploadPolicyTest,DeleteDocumentUseCaseTest}.kt
+|feature/ingestionjob:{MarkdownSectionParserTest,TextChunkingServiceTest}.kt
+|feature/retrieval:{RetrievalBenchmarkTest,RetrievalIntegrationTest,Phase2EvalRunnerTest,Phase2EvalSetParseTest,RetrievalTestUtils}.kt
 |feature/retrieval/rerank:{CrossEncoderRerankerTest,LlmJudgeRerankerTest}.kt
 |feature/retrieval/verify:{DefaultEvidenceVerifierTest,QueryTypeClassifierTest}.kt
-|feature/retrieval/eval:{Phase2EvalScorerTest,Phase2EvalValidatorTest,SyntheticEvalQueryGeneratorTest}.kt
-|mock:{MockCrossEncoderServer,MockDocumentStore}.kt
+|feature/retrieval/eval:{Phase2EvalScorerTest,Phase2EvalValidatorTest,SyntheticEvalQueryGeneratorTest,Phase2EvalModels,SyntheticEvalQueryGenerator}.kt
+|feature/retrieval/infrastructure:{RetrievalMetricsTest}.kt
+|mock:{MockCrossEncoderServer,MockDocumentStore,MockDocumentStoreTest}.kt
 |eval-data: src/test/resources/eval/{phase2_eval_sample,phase2_mock_documents_sample}.json
 |naming: <Subject>Test.kt | E2E: *E2eTest.kt | 벤치마크: *BenchmarkTest.kt
 |frontend: 테스트 프레임워크 미설정 (lint/build로 검증)

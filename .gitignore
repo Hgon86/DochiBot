@@ -47,7 +47,10 @@ opencode.json
 .env
 **/.env
 
+### CodeGraph local index ###
+.codegraph/
+.codegraph-*/
+
 ### Local Spring config (do not commit) ###
 src/main/resources/application-local.yml
 src/main/resources/application-local.yaml
-docs/
